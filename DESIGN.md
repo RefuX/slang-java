@@ -633,8 +633,8 @@ S ≈ a day, M ≈ 2–4 days, L ≈ 1–2 weeks of focused work.
 - Hand-written layer of §8: sessions/modules/linking/target code, exceptions, enums, builders,
   Cleaner safety net + debug leak tracing, thread-confinement asserts.
 - **Exit:** sample code in §8 compiles and runs as written; API review pass done.
-- **Status (2026-07-13): complete.** The §8 sample runs **verbatim** as
-  `IdiomaticApiTest.designDocSampleRunsAsWritten`. Public surface:
+- **Status (2026-07-13): complete — CI matrix green on all five platforms.** The §8 sample runs
+  **verbatim** as `IdiomaticApiTest.designDocSampleRunsAsWritten`. Public surface:
   `Slang.createGlobalSession()`, `GlobalSession`/`SessionBuilder`/`TargetOptions`,
   `Session` (module loading with warnings→consumer, composition, debug thread-confinement
   asserts), `ComponentType`/`Module`/`EntryPoint`, `CompileTarget` + `ParameterCategory` enums
