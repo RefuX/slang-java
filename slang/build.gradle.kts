@@ -1,6 +1,43 @@
 plugins {
     `java-library`
     id("com.diffplug.spotless") version "8.8.0"
+    id("com.vanniktech.maven.publish")
+}
+
+// Maven Central publishing (com.vanniktech.maven.publish), tag-driven via
+// .github/workflows/release.yml — the same shape as slang-wasm-endive.
+mavenPublishing {
+    publishToMavenCentral()
+    signAllPublications()
+
+    pom {
+        name = "slang-java"
+        description = "Java bindings for the Slang shader compiler via the FFM API: compile " +
+            "Slang to SPIR-V, HLSL, GLSL, WGSL, or Metal, use the full reflection API, and " +
+            "serve imports from Java file systems - pure Java over the official native " +
+            "binaries, no JNI."
+        inceptionYear = "2026"
+        url = "https://github.com/RefuX/slang-java"
+        licenses {
+            license {
+                name = "The Apache License, Version 2.0"
+                url = "https://www.apache.org/licenses/LICENSE-2.0.txt"
+                distribution = "https://www.apache.org/licenses/LICENSE-2.0.txt"
+            }
+        }
+        developers {
+            developer {
+                id = "RefuX"
+                name = "James Roome"
+                url = "https://github.com/RefuX"
+            }
+        }
+        scm {
+            url = "https://github.com/RefuX/slang-java"
+            connection = "scm:git:git://github.com/RefuX/slang-java.git"
+            developerConnection = "scm:git:ssh://git@github.com/RefuX/slang-java.git"
+        }
+    }
 }
 
 spotless {
@@ -15,7 +52,7 @@ spotless {
 }
 
 group = "io.github.refux"
-version = "0.1.0-SNAPSHOT"
+version = "0.0.1"
 
 repositories {
     mavenCentral()

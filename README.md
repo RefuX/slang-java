@@ -1,5 +1,9 @@
 # slang-java
 
+[![CI](https://github.com/RefuX/slang-java/actions/workflows/ci.yml/badge.svg)](https://github.com/RefuX/slang-java/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/RefuX/slang-java?include_prereleases&label=release)](https://github.com/RefuX/slang-java/releases)
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.refux/slang?label=maven%20central)](https://central.sonatype.com/artifact/io.github.refux/slang)
+
 Java bindings for the [Slang](https://github.com/shader-slang/slang) shading-language compiler,
 built on the Java Foreign Function & Memory API (FFM) — **pure Java, no JNI, no native glue of
 our own**. Binds the official Khronos-signed Slang release binaries directly.
@@ -96,7 +100,14 @@ try (GlobalSession global = Slang.createGlobalSession();
 | [.github/workflows/ci.yml](.github/workflows/ci.yml) | Five-platform smoke matrix (Intel-mac best-effort; windows-aarch64 descoped for now) |
 | [tools/api-scan.py](tools/api-scan.py) | Prototype scanner of `slang.h`; seed of the M2 generator |
 
-## Next milestone
+## Releasing
 
-**M6** — distribution & polish: per-platform natives jars published to Maven Central, javadoc,
-the LWJGL Vulkan sample, the weekly ABI-drift canary, and the version-compatibility story.
+Push a tag matching the version in `slang/build.gradle.kts` (e.g. `v0.0.1`) —
+[release.yml](.github/workflows/release.yml) runs the test suite against the pinned binaries,
+publishes `io.github.refux:slang` to Maven Central (auto-released), and creates the GitHub
+Release. Same shape and secrets as slang-wasm-endive.
+
+## Remaining M6 work
+
+Per-platform natives jars (and their classpath loader step), a javadoc pass, and the weekly
+ABI-drift canary.

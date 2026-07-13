@@ -1,6 +1,11 @@
 pluginManagement {
     repositories {
         gradlePluginPortal()
+        mavenCentral()
+    }
+    plugins {
+        // Maven Central publishing, same shape as the sibling slang-wasm-endive project.
+        id("com.vanniktech.maven.publish") version "0.37.0"
     }
 }
 

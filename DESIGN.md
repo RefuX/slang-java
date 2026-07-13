@@ -233,8 +233,7 @@ slang-java/
 │   ├── download.gradle.kts          fetch + verify official release zips
 │   └── (windows|linux|macos)-(x86_64|aarch64)/   repackaged jars
 ├── samples/
-│   ├── hello-compile/               source → SPIR-V + reflection dump
-│   └── lwjgl-vulkan/                feed generated SPIR-V into LWJGL Vulkan
+│   └── hello-compile/               source → SPIR-V + reflection dump
 └── tools/api-scan.py                the prototype scanner used for this document
 ```
 
@@ -536,8 +535,7 @@ libclang-based — regex parsing is fine for a survey, not for slot-perfect code
 ## 14. Prior art
 
 - **LWJGL** — the natives-classifier-jar + extract-to-cache loader pattern we copy; it binds
-  shaderc and SPIRV-Cross but has no Slang binding (verified 2026-07). The `lwjgl-vulkan` sample
-  doubles as the integration proof.
+  shaderc and SPIRV-Cross but has no Slang binding (verified 2026-07).
 - **jextract** — API style reference for the generated layer (layouts, typed accessors).
 - **slangpy / slang-wasm** — Slang's own non-C++ bindings; useful precedents for API *shape*
   (what to expose eagerly vs lazily), not mechanism.
@@ -700,11 +698,20 @@ S ≈ a day, M ≈ 2–4 days, L ≈ 1–2 weeks of focused work.
 
 ### M6 — Distribution & polish (M)
 - Natives publishing pipeline (download→verify→repackage→sign?→publish), Maven Central setup,
-  javadoc, README quickstart incl. `--enable-native-access` guidance, LWJGL Vulkan sample,
+  javadoc, README quickstart incl. `--enable-native-access` guidance,
   version-compatibility doc (pinned vs newer natives), optional perf pass
   (`Linker.Option.critical`, StableValue), weekly ABI canary workflow.
+  *(LWJGL Vulkan sample descoped — owner decision, 2026-07-13.)*
 - **Exit:** `mvn`/Gradle consumers on all three OSes can compile a shader with two dependencies
   and zero manual native setup.
+- **In progress (2026-07-13):** project version set to **0.0.1**; Maven Central publishing
+  configured for `io.github.refux:slang` via `com.vanniktech.maven.publish` 0.37.0 (Central
+  Portal, auto-release, in-memory signing) with a tag-driven `release.yml` that gates on the
+  test suite — the same shape and secret names as the sibling slang-wasm-endive project, whose
+  existing releases prove the `io.github.refux` namespace is already verified on Central
+  (closing Open Question 1 entirely). README carries CI / GitHub-release / Maven Central
+  badges. Remaining: per-platform natives jars + the loader's classpath resolution step,
+  a javadoc pass, and the weekly ABI-drift canary.
 
 ### Suggested first PR stack
 1. repo scaffold + CI skeleton (M0a) → 2. natives download + manifests (M0b) → 3. micro-binding +

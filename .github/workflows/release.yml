@@ -1,0 +1,60 @@
+name: Release
+
+# Push a tag like v0.0.1 to release. This publishes io.github.refux:slang to Maven Central
+# (Central Portal, auto-released — no manual step) and creates the matching GitHub Release.
+# The tag must match the `version` in slang/build.gradle.kts (tag v0.0.1 → version 0.0.1).
+#
+# Required repository secrets (same set as slang-wasm-endive):
+#   MAVEN_CENTRAL_USERNAME / MAVEN_CENTRAL_PASSWORD — Central Portal token
+#   SIGNING_KEY / SIGNING_PASSWORD — in-memory GPG key for artifact signing
+#
+# Note: this releases the Java library only; the per-platform natives jars are the remaining
+# M6 work (DESIGN.md §16) and will join this workflow when they exist.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write # needed to create the GitHub Release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out slang-java
+        uses: actions/checkout@v7
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 25
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      # Gate the release on the smoke/golden suite against the pinned official binaries.
+      - name: Download pinned Slang natives
+        run: ./gradlew :natives:downloadNatives --console=plain
+
+      - name: Run tests
+        run: ./gradlew :slang:test "-PslangNativesDir=natives/build/payload/linux-x86_64/lib" --console=plain
+
+      - name: Publish to Maven Central
+        run: ./gradlew :slang:publishAndReleaseToMavenCentral --no-configuration-cache --stacktrace
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_PASSWORD }}
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create "${GITHUB_REF_NAME}"
+          --title "${GITHUB_REF_NAME}"
+          --generate-notes
+          slang/build/libs/*.jar
