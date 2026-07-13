@@ -20,26 +20,11 @@ directly. Windows, macOS, and Linux, on x86_64 and aarch64. Requires JDK 25+.
 
 ## Getting started
 
-Add the library plus the natives classifier for each platform you run on — they sit on the
-classpath together and the loader picks the host's at runtime (LWJGL-style):
+Add the library and the natives classifier for your machine — compute it from the host so you
+never hardcode a platform:
 
 ```kotlin
 // build.gradle.kts
-dependencies {
-    implementation("io.github.refux:slang-java:0.0.1")
-    runtimeOnly("io.github.refux:slang-java-natives:0.0.1:macos-aarch64")
-    runtimeOnly("io.github.refux:slang-java-natives:0.0.1:windows-x86_64")
-    runtimeOnly("io.github.refux:slang-java-natives:0.0.1:linux-x86_64")
-}
-
-tasks.withType<JavaExec> {
-    jvmArgs("--enable-native-access=ALL-UNNAMED") // FFM restricted methods, JEP 472
-}
-```
-
-For a host-only build, compute the one classifier you need instead of listing them:
-
-```kotlin
 val slangNatives = "${
     when {
         org.gradle.internal.os.OperatingSystem.current().isWindows -> "windows"
@@ -51,6 +36,22 @@ val slangNatives = "${
 dependencies {
     implementation("io.github.refux:slang-java:0.0.1")
     runtimeOnly("io.github.refux:slang-java-natives:0.0.1:$slangNatives")
+}
+
+tasks.withType<JavaExec> {
+    jvmArgs("--enable-native-access=ALL-UNNAMED") // FFM restricted methods, JEP 472
+}
+```
+
+Shipping one build that runs on every OS? List the classifiers instead — they sit on the
+classpath together and the loader picks the host's at runtime (LWJGL-style):
+
+```kotlin
+dependencies {
+    implementation("io.github.refux:slang-java:0.0.1")
+    runtimeOnly("io.github.refux:slang-java-natives:0.0.1:macos-aarch64")
+    runtimeOnly("io.github.refux:slang-java-natives:0.0.1:windows-x86_64")
+    runtimeOnly("io.github.refux:slang-java-natives:0.0.1:linux-x86_64")
 }
 ```
 
