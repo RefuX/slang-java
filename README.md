@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/RefuX/slang-java/actions/workflows/ci.yml/badge.svg)](https://github.com/RefuX/slang-java/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/RefuX/slang-java?include_prereleases&label=release)](https://github.com/RefuX/slang-java/releases)
-[![Maven Central](https://img.shields.io/maven-central/v/io.github.refux/slang?label=maven%20central)](https://central.sonatype.com/artifact/io.github.refux/slang)
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.refux/slang-java?label=maven%20central)](https://central.sonatype.com/artifact/io.github.refux/slang-java)
 
 Java bindings for the [Slang](https://github.com/shader-slang/slang) shading-language compiler,
 built on the Java Foreign Function & Memory API (FFM) — **pure Java, no JNI, no native glue of
@@ -83,7 +83,7 @@ try (GlobalSession global = Slang.createGlobalSession();
   C downcalls, and Java-implemented Slang interfaces (upcalls) — all in `java.lang.foreign`.
 - **Generated low-level layer** (`slang-bindgen`: libclang extractor → committed JSON API model →
   Java codegen) + **hand-written idiomatic layer**.
-- **LWJGL-style distribution**: `io.github.refux:slang` + per-platform natives jars repackaging
+- **LWJGL-style distribution**: `io.github.refux:slang-java` + per-platform natives jars repackaging
   the unmodified official release libraries (Windows/macOS/Linux, x86_64/aarch64).
 
 ## Repository contents
@@ -104,7 +104,7 @@ try (GlobalSession global = Slang.createGlobalSession();
 
 Push a tag matching the version in `slang/build.gradle.kts` (e.g. `v0.0.1`) —
 [release.yml](.github/workflows/release.yml) runs the test suite against the pinned binaries,
-publishes `io.github.refux:slang` to Maven Central (auto-released), and creates the GitHub
+publishes `io.github.refux:slang-java` to Maven Central (auto-released), and creates the GitHub
 Release. Same shape and secrets as slang-wasm-endive.
 
 ## Remaining M6 work

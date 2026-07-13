@@ -1,6 +1,6 @@
 name: Release
 
-# Push a tag like v0.0.1 to release. This publishes io.github.refux:slang to Maven Central
+# Push a tag like v0.0.1 to release. This publishes io.github.refux:slang-java to Maven Central
 # (Central Portal, auto-released — no manual step) and creates the matching GitHub Release.
 # The tag must match the `version` in slang/build.gradle.kts (tag v0.0.1 → version 0.0.1).
 #

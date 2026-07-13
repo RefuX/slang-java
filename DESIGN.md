@@ -24,7 +24,7 @@ and all interface/method counts below are its output, re-runnable at any time.
 2. **Pure Java.** No JNI glue, no C++ shim library, no native code of our own to build or ship.
    We bind the *official, signed* Slang release binaries directly via the Foreign Function &
    Memory API (FFM, final since JDK 22).
-3. Cross-platform out of the box: one `implementation("io.github.refux:slang")` dependency plus a
+3. Cross-platform out of the box: one `implementation("io.github.refux:slang-java")` dependency plus a
    per-platform natives artifact, LWJGL-style, working on Windows/macOS/Linux, x86_64/aarch64.
 4. Two API layers: a **generated low-level layer** that is mechanically faithful to `slang.h`, and
    a **hand-written idiomatic layer** (try-with-resources, exceptions, enums, builders).
@@ -239,11 +239,11 @@ slang-java/
 
 ### Published artifacts
 
-- `io.github.refux:slang` — the Java library (JPMS module `io.github.refux.slang`).
-- `io.github.refux:slang-natives-{windows,linux,macos}-{x86_64,aarch64}` — one per platform,
+- `io.github.refux:slang-java` — the Java library (JPMS module `io.github.refux.slang`).
+- `io.github.refux:slang-java-natives-{windows,linux,macos}-{x86_64,aarch64}` — one per platform,
   containing the official release `lib/` payload under
   `META-INF/natives/<os>/<arch>/`, plus a manifest with versions and SHA-256s.
-- `io.github.refux:slang-natives-llvm-…` — optional, the big `slang-llvm` library for CPU targets.
+- `io.github.refux:slang-java-natives-llvm-…` — optional, the big `slang-llvm` library for CPU targets.
 
 (Group id `io.github.refux` — the owner's GitHub-user namespace, verifiable on Maven Central
 through the GitHub account without owning a domain. Decided 2026-07-13.)
@@ -705,7 +705,7 @@ S ≈ a day, M ≈ 2–4 days, L ≈ 1–2 weeks of focused work.
 - **Exit:** `mvn`/Gradle consumers on all three OSes can compile a shader with two dependencies
   and zero manual native setup.
 - **In progress (2026-07-13):** project version set to **0.0.1**; Maven Central publishing
-  configured for `io.github.refux:slang` via `com.vanniktech.maven.publish` 0.37.0 (Central
+  configured for `io.github.refux:slang-java` via `com.vanniktech.maven.publish` 0.37.0 (Central
   Portal, auto-release, in-memory signing) with a tag-driven `release.yml` that gates on the
   test suite — the same shape and secret names as the sibling slang-wasm-endive project, whose
   existing releases prove the `io.github.refux` namespace is already verified on Central

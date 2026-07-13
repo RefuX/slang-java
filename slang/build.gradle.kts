@@ -4,11 +4,22 @@ plugins {
     id("com.vanniktech.maven.publish")
 }
 
+group = "io.github.refux"
+version = "0.0.1"
+
+// The published artifact is io.github.refux:slang-java (set via mavenPublishing.coordinates);
+// keep local jar names in step with it. The Gradle module path stays :slang.
+base {
+    archivesName = "slang-java"
+}
+
 // Maven Central publishing (com.vanniktech.maven.publish), tag-driven via
 // .github/workflows/release.yml — the same shape as slang-wasm-endive.
+// (This block must come after the version assignment: coordinates() captures it eagerly.)
 mavenPublishing {
     publishToMavenCentral()
     signAllPublications()
+    coordinates("io.github.refux", "slang-java", project.version.toString())
 
     pom {
         name = "slang-java"
@@ -50,9 +61,6 @@ spotless {
         palantirJavaFormat("2.96.0")
     }
 }
-
-group = "io.github.refux"
-version = "0.0.1"
 
 repositories {
     mavenCentral()
