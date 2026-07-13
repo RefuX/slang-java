@@ -9,7 +9,6 @@
     {"path": "lib/libslang-compiler.so.0.2026.13", "size": 30009416, "sha256": "bdfb9d2635cc8f65b6b46886f3b355eca5c5db0b3da33e0d1afdfdefaf83ab90"},
     {"path": "lib/libslang-glsl-module-2026.13.so", "size": 1261096, "sha256": "350a2170b83d8145856c69294243c9ece52f0328b661c3f3e56076ca82ea888c"},
     {"path": "lib/libslang-glslang-2026.13.so", "size": 10004856, "sha256": "f796a6ea76b066276d633ec99a2bea3fd66338c0eb9cb907cf5be23b5707e4a6"},
-    {"path": "lib/libslang-llvm.so", "size": 152111736, "sha256": "8afca730a94e3caf5fb55a13372cab3843762bf09d1520599e5c75d0af009ccf"},
     {"path": "lib/libslang-rt.so.0.2026.13", "size": 320056, "sha256": "8bdd0841ca0f1dadc1845570cfd385dc392e04a9df52a0f36c2f1d71d43d2138"},
     {"path": "lib/slang-standard-module-2026.13/experimental/workgraph.slang", "size": 8900, "sha256": "4ccb32d0cc2a4d735ae2da16ef6908d24d0a991753e8593ff01ef433e3aab078"},
     {"path": "lib/slang-standard-module-2026.13/experimental/workgraph.slang-module", "size": 107076, "sha256": "984e848b45a7d5709fef3b0e75919e187445a65e0c6e3349fe6bd06d05faaef9"},

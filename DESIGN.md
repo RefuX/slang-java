@@ -75,7 +75,7 @@ Official release archives (`slang-<ver>-<os>-<arch>.zip`, produced by cpack in
 | Compiler core | `slang-compiler.dll` | `libslang-compiler.so` | `libslang-compiler.0.<ver>.dylib` (+`libslang-compiler.dylib` symlink) | **Yes — the library we bind** |
 | glslang bridge | `slang-glslang.dll` | `libslang-glslang.so` | `libslang-glslang-<ver>.dylib` | Yes (dlopened by slang for SPIR-V optimization/validation paths) |
 | GLSL compat module | `slang-glsl-module.*` | 〃 | 〃 | Yes if GLSL-syntax modules are imported; cheap, bundle it |
-| LLVM backend | `slang-llvm.*` | 〃 | 〃 | Optional (CPU/host-callable targets); large → separate optional artifact |
+| LLVM backend | `slang-llvm.*` | 〃 | 〃 | **Excluded** — only CPU/host-callable targets (out of scope) need it, and slang-compiler dlopens it lazily. Omitting it (~100 MB) cut each natives jar to ~16–21 MB. |
 | Runtime | `slang-rt.*` | 〃 | 〃 | Not needed for compilation; only for hosting CPU-compiled shaders |
 | gfx | `gfx.*` | 〃 | 〃 | No (out of scope) |
 | Standard modules | `*.slang-module` files | 〃 | 〃 | Bundle alongside libs (glsl module etc. load them) |
@@ -531,7 +531,7 @@ libclang-based — regex parsing is fine for a survey, not for slot-perfect code
 | Baseline too new for some consumers | Low | Code needs nothing newer than JDK 22 FFM; lowering the baseline below 25 is a one-line toolchain change if users ask |
 | Preview-classfile lock-in | — | Policy §10: preview never ships in published jars |
 | macOS Gatekeeper on extracted dylibs | Low | Byte-exact extraction preserves notarized signatures; JVM writes carry no quarantine attr; CI runs on clean macOS runners to catch regressions |
-| Large natives (slang-llvm ~100s of MB) bloating downloads | Certain | Separate optional artifact; core natives stay lean |
+| Large natives (slang-llvm ~100 MB) bloating downloads | Resolved | slang-llvm excluded from the payload (out-of-scope CPU targets only); natives jars are ~16–21 MB. A separate opt-in llvm artifact can be added if host-callable targets are ever wanted. |
 
 ## 14. Prior art
 

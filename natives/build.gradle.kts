@@ -90,6 +90,10 @@ fun destinationFor(entryName: String): String? {
         || lower.endsWith(".lib") || lower.endsWith(".exp")) {
         return null
     }
+    // slang-llvm (~100 MB) backs only the CPU / host-callable targets, which are out of scope
+    // (we produce shader bytes). slang-compiler dlopens it lazily, so omitting it keeps the
+    // SPIR-V/HLSL/GLSL/WGSL/Metal targets working while cutting the payload by two-thirds.
+    if (lower.startsWith("slang-llvm") || lower.startsWith("libslang-llvm")) return null
     val isSharedLib = lower.endsWith(".dll") || lower.endsWith(".dylib") || ".so" in lower
     return if (isSharedLib || lower.endsWith(".slang-module")) "lib/${parts.last()}" else null
 }
@@ -262,10 +266,17 @@ extensions.configure<BasePluginExtension>("base") {
 }
 
 // One classifier jar per platform. Returns the jar tasks so the publication can attach them.
-val classifierJars = platformAssets.keys.map { platform ->
+// Platforms whose manifest hasn't been recorded yet are skipped (so `downloadNatives` can run
+// to create them on a fresh checkout, or when regenerating them); the release always records
+// all six first.
+val classifierJars = platformAssets.keys.mapNotNull { platform ->
     val os = platform.substringBeforeLast('-')
     val arch = platform.substringAfterLast('-')
     val manifestFile = file("manifests/$platform.json")
+    if (!manifestFile.exists()) {
+        logger.info("natives: no manifest for $platform yet; skipping its classifier jar")
+        return@mapNotNull null
+    }
 
     @Suppress("UNCHECKED_CAST")
     val manifest = groovy.json.JsonSlurper().parse(manifestFile) as Map<String, Any>
