@@ -680,7 +680,8 @@ S ≈ a day, M ≈ 2–4 days, L ≈ 1–2 weeks of focused work.
 - Generic upcall COM factory + `ISlangBlob`/`ISlangFileSystem` support, `MapFileSystem`,
   `PathFileSystem`; refcount stress tests; shared-arena audit.
 - **Exit:** compile a multi-file module graph served entirely from a Java `Map<String,String>`.
-- **Status (2026-07-13): complete.** `ffi.JavaComObject` implements the §6 design exactly:
+- **Status (2026-07-13): complete — CI matrix green on all five platforms** (the upcall stubs'
+  first run on Windows and Linux). `ffi.JavaComObject` implements the §6 design exactly:
   per-instance 16-byte `[vtable* | id]` allocations in per-instance shared arenas (freed on the
   last release), shared IUnknown upcall stubs (queryInterface answers the interface chain's
   IIDs — parsed from the generated `IID` strings — and add-refs; every stub catches Throwable,
