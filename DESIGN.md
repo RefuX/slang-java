@@ -719,7 +719,15 @@ S ≈ a day, M ≈ 2–4 days, L ≈ 1–2 weeks of focused work.
   and compiling with only the classifier jar on the class path, no `libraryPath`. `release.yml`
   (tag-driven) downloads all payloads, runs the test suite, publishes both modules, and attaches
   every jar to the GitHub Release. README carries CI / release / Central badges and the
-  classifier consumption snippet. Remaining: a javadoc pass and the weekly ABI-drift canary.
+  classifier consumption snippet. **Javadoc:** the published `-javadoc.jar` is scoped to the
+  idiomatic API (`io.github.refux.slang` + loader), excluding the generated `ffi.gen`/`gen`
+  layers, and builds warning-free (`Xdoclint:all,-missing`). **ABI-drift canary:**
+  `.github/workflows/abi-canary.yml` runs weekly (and on demand) — it sparse-checks out Slang's
+  upstream headers, runs the extractor in `--verify` mode (enforces the committed lock without
+  rewriting it, single Linux triple) so any non-append change fails the run and notifies the
+  owner, and `diff_model.py` reports benign additions in the run summary. Both verified locally,
+  including that breaking drift exits non-zero. **M6 complete** bar the perf pass
+  (`Linker.Option.critical`, `StableValue`), which is optional.
 
 ### Suggested first PR stack
 1. repo scaffold + CI skeleton (M0a) → 2. natives download + manifests (M0b) → 3. micro-binding +

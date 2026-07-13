@@ -81,6 +81,23 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
+// Published javadoc focuses on the idiomatic API (io.github.refux.slang) and the loader's
+// configuration surface. The generated ffi.gen / gen layers and the low-level ffi wrappers are
+// documented escape hatches (see DESIGN.md), not semver-stable, so they are excluded to keep the
+// user-facing docs clean and warning-free.
+tasks.javadoc {
+    exclude("io/github/refux/slang/ffi/**")
+    exclude("io/github/refux/slang/gen/**")
+    (options as StandardJavadocDocletOptions).apply {
+        docTitle = "slang-java $version"
+        windowTitle = "slang-java $version"
+        encoding = "UTF-8"
+        addBooleanOption("Xdoclint:all,-missing", true)
+        addBooleanOption("quiet", true)
+        links("https://docs.oracle.com/en/java/javase/25/docs/api/")
+    }
+}
+
 tasks.test {
     useJUnitPlatform()
     // FFM restricted methods (library loading, reinterpret) — JEP 472.

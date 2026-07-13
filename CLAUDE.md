@@ -36,6 +36,10 @@ walkthrough as its acceptance test, and Java-implemented COM upcalls serving imp
   One-time venv setup: `python3 -m venv bindgen/extract/.venv && bindgen/extract/.venv/bin/pip install libclang`.
   `api/slang-abi.lock` is append-only ABI enforcement; `--reset-lock` is only for lock-format
   migrations and must be justified in the commit message.
+- ABI-drift canary: `.github/workflows/abi-canary.yml` runs weekly, parsing Slang upstream
+  headers and enforcing the committed lock (`extract_api.py --verify`, which checks the lock
+  without rewriting it). A non-append change fails the run; benign additions are reported. Run
+  it on demand from the Actions tab (workflow_dispatch, optional `ref` input).
 - Verify hand-written struct layouts: `tools/abi-probe.cpp` (build/run instructions in its header)
 - Release: push a tag matching the version in `slang/build.gradle.kts` (e.g. `v0.0.1`) —
   `.github/workflows/release.yml` runs the tests against the pinned binaries, publishes

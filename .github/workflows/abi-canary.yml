@@ -1,0 +1,63 @@
+name: ABI drift canary
+
+# Weekly early warning: parse Slang's upstream headers and enforce the committed append-only
+# ABI lock (api/slang-abi.lock). A non-append change (a reordered/removed vtable method, a
+# renumbered enum, a changed struct offset, a dropped export) fails the run — that's the alarm,
+# and GitHub emails the repo owner on a failed scheduled workflow. Benign additions (new methods
+# / enums / functions) are reported in the run summary as "regenerate when convenient".
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Slang git ref to check (branch, tag, or SHA)"
+        default: master
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out slang-java
+        uses: actions/checkout@v7
+
+      # Version-matched clang + libclang so the parser and its resource headers agree (a
+      # mismatch breaks the freestanding stdint.h the non-host triples rely on).
+      - name: Install clang / libclang
+        run: sudo apt-get update && sudo apt-get install -y clang-18 libclang-18-dev
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install libclang Python bindings
+        run: pip install libclang==18.1.1
+
+      # Just the public headers — no need for the whole Slang tree.
+      - name: Fetch upstream Slang headers (${{ github.event.inputs.ref || 'master' }})
+        run: |
+          git clone --depth 1 --filter=blob:none --sparse \
+            --branch "${{ github.event.inputs.ref || 'master' }}" \
+            https://github.com/shader-slang/slang.git slang-upstream
+          cd slang-upstream && git sparse-checkout set include
+
+      # Enforces the committed lock against the upstream headers on the Linux host triple.
+      # Non-append drift raises here → the step (and workflow) fails → owner is notified.
+      - name: Enforce ABI lock against upstream headers
+        env:
+          SLANG_CLANG: clang-18
+          SLANG_LIBCLANG: /usr/lib/llvm-18/lib/libclang.so
+        run: |
+          python bindgen/extract/extract_api.py \
+            --slang-include slang-upstream/include \
+            --slang-version "upstream-${{ github.event.inputs.ref || 'master' }}" \
+            --out /tmp/upstream-model.json \
+            --lock api/slang-abi.lock \
+            --verify --skip-cross-triple \
+            --primary-triple x86_64-unknown-linux-gnu
+
+      # Report benign additions (never fails).
+      - name: Report API additions
+        if: always()
+        run: python bindgen/extract/diff_model.py api/slang-api.json /tmp/upstream-model.json || true
