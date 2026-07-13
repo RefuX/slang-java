@@ -655,8 +655,8 @@ S ≈ a day, M ≈ 2–4 days, L ≈ 1–2 weeks of focused work.
   null-object conventions).
 - Reflection golden tests (parameter blocks, generics/specialization, entry-point layouts).
 - **Exit:** the user-guide reflection walkthrough is reproducible from Java.
-- **Status (2026-07-13): complete.** The generator now emits one instance class per C++
-  reflection wrapper class into `io.github.refux.slang.gen` (11 classes, 166 methods — same
+- **Status (2026-07-13): complete — CI matrix green on all five platforms.** The generator now
+  emits one instance class per C++ reflection wrapper class into `io.github.refux.slang.gen` (11 classes, 166 methods — same
   generated-code-lives-in-a-`.gen`-package convention as `ffi`/`ffi.gen`) straight from the
   model's `reflectionWrappers` mapping: methods forward to the `SlangReflectionAPI` downcall the
   C++ inline wrapper compiles to, reflection pointers come back typed via a self-derived
