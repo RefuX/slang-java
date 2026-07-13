@@ -8,7 +8,7 @@ import java.util.Map;
 /**
  * Serves {@code import}/{@code #include} resolution for a {@link Session} from Java —
  * an engine's pack files, classpath resources, an in-memory map, whatever. Install via
- * {@link SessionBuilder#fileSystem}.
+ * {@link SessionBuilder#fileSystem(SlangFileSystem)}.
  *
  * <p>Slang probes candidate paths while resolving imports, so {@link #loadFile} is routinely
  * called for paths that don't exist — return null for those. Calls arrive on the compiling

@@ -49,7 +49,7 @@ public final class Codegen {
         }
     }
 
-    public static void main(String[] args) throws IOException {
+    static void main(String[] args) throws IOException {
         if (args.length != 2) {
             System.err.println("usage: Codegen <api/slang-api.json> <java-source-root>");
             System.exit(2);

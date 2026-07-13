@@ -32,7 +32,8 @@ public final class Session extends NativeObject {
      * modules would {@code import} it by; diagnostics reference {@code <name>.slang}).
      *
      * @throws SlangCompileException with the compiler's diagnostics text when compilation fails;
-     *     success-with-warnings text goes to the {@link SessionBuilder#onDiagnostics} consumer
+     *     success-with-warnings text goes to the
+     *     {@link SessionBuilder#onDiagnostics(java.util.function.Consumer)} consumer
      */
     public Module loadModuleFromSource(String name, String source) {
         checkThread();
