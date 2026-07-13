@@ -3,7 +3,9 @@
 # covers). Runs in CI (.github/workflows/qodana.yml); locally, `qodana scan` with the Qodana CLI
 # or Docker uses this same config.
 version: "1.0"
-linter: jetbrains/qodana-jvm-community:latest
+# Pinned (not :latest) for reproducible runs; keep in step with the action version in
+# .github/workflows/qodana.yml.
+linter: jetbrains/qodana-jvm-community:2026.1
 
 # The recommended profile is a curated, low-false-positive inspection set. Deliberate exceptions
 # (e.g. borrowed native COM handles) carry @SuppressWarnings in code, which Qodana honours.
