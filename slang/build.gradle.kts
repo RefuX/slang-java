@@ -97,13 +97,16 @@ dependencies {
 // documented escape hatches (see DESIGN.md), not semver-stable, so they are excluded to keep the
 // user-facing docs clean and warning-free.
 tasks.javadoc {
-    exclude("io/github/refux/slang/ffi/**")
-    exclude("io/github/refux/slang/gen/**")
+    // With module-info present, javadoc runs in module mode and must see every package in the
+    // module, so the sources cannot be excluded the way they were pre-module (that breaks module
+    // compilation with "package does not exist"). Doclint is disabled because the generated
+    // ffi.gen / gen bindings carry no doc comments; the idiomatic io.github.refux.slang API is the
+    // documented surface (see DESIGN.md).
     (options as StandardJavadocDocletOptions).apply {
         docTitle = "slang-java $version"
         windowTitle = "slang-java $version"
         encoding = "UTF-8"
-        addBooleanOption("Xdoclint:all,-missing", true)
+        addBooleanOption("Xdoclint:none", true)
         addBooleanOption("quiet", true)
         links("https://docs.oracle.com/en/java/javase/25/docs/api/")
     }
@@ -111,8 +114,9 @@ tasks.javadoc {
 
 tasks.test {
     useJUnitPlatform()
-    // FFM restricted methods (library loading, reinterpret) — JEP 472.
-    jvmArgs("--enable-native-access=ALL-UNNAMED")
+    // FFM restricted methods (library loading, reinterpret) — JEP 472. Grant the named module (the
+    // FFM downcalls live in io.github.refux.slang) as well as ALL-UNNAMED (tests on the classpath).
+    jvmArgs("--enable-native-access=io.github.refux.slang,ALL-UNNAMED")
 
     // Route a Slang library directory to the loader (DESIGN.md §7 resolution order #1):
     //   ./gradlew :slang:test -PslangNativesDir=natives/build/payload/<platform>/lib
