@@ -583,10 +583,11 @@ S ≈ a day, M ≈ 2–4 days, L ≈ 1–2 weeks of focused work.
 - Empirically settle the `SessionDesc` copy-semantics question; encode the answer in a lifetime
   test and a doc note.
 - **Exit:** `hello-compile` golden test green on the full matrix; leak detector clean.
-- **Status (2026-07-13): complete.** Descriptor layouts hand-written against compiler-verified
-  numbers from `tools/abi-probe.cpp` (TargetDesc 48 B — where the probe caught a non-obvious
-  default, `kDefaultTargetFlags` = 1024; SessionDesc 96 B). Full pipeline green in
-  `CompilePipelineTest`: SPIR-V magic, HLSL text, multi-target index mapping, diagnostics as
+- **Status (2026-07-13): complete — CI matrix green on all five platforms.** Descriptor layouts
+  hand-written against compiler-verified numbers from `tools/abi-probe.cpp` (TargetDesc 48 B —
+  where the probe caught a non-obvious default, `kDefaultTargetFlags` = 1024; SessionDesc 96 B).
+  Full pipeline green in `CompilePipelineTest` on linux-x86_64/aarch64, windows-x86_64, and
+  macos-aarch64/x86_64: SPIR-V magic, HLSL text, multi-target index mapping, diagnostics as
   `SlangCompileException` (and the session stays usable after a failed compile). Copy semantics
   answered — `createSession` copies (risk row above). Spotless (palantir-java-format) added,
   clearing the M0 deferral. "Leak detector clean" is interpreted for M1 as deterministic
