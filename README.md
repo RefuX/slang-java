@@ -59,7 +59,7 @@ try (GlobalSession global = Slang.createGlobalSession();
 | `slang/` | The library. M0: hand-written micro-binding (loader, C downcalls, COM dispatch) + smoke tests |
 | `natives/` | `downloadNatives` task: fetches pinned release archives, verifies SHA-256 manifests, extracts payloads |
 | `natives/manifests/` | Committed per-platform payload manifests for Slang v2026.13 (all six os-arch combos) |
-| [.github/workflows/ci.yml](.github/workflows/ci.yml) | Six-platform smoke matrix (arm-Windows / Intel-mac best-effort) |
+| [.github/workflows/ci.yml](.github/workflows/ci.yml) | Five-platform smoke matrix (Intel-mac best-effort; windows-aarch64 descoped for now) |
 | [tools/api-scan.py](tools/api-scan.py) | Prototype scanner of `slang.h`; seed of the M2 generator |
 
 ## Next milestone

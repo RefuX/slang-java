@@ -505,9 +505,11 @@ libclang-based — regex parsing is fine for a survey, not for slot-perfect code
   instrumentation), upcall file system (including refcount stress across many compiles), UTF-8
   round-trips, enum round-trips of unknown values.
 - Reflection tests: known shader → assert full parameter/type-layout tree.
-- **Matrix:** `{ubuntu-latest, ubuntu-24.04-arm, windows-latest, windows-11-arm, macos-14, macos-15-intel… }`
-  × JDK 26-EA. (Exact runner labels chosen in M0; all six OS×arch combos must be covered, arm
-  Windows allowed to be best-effort initially.)
+- **Matrix:** `{ubuntu-latest, ubuntu-24.04-arm, windows-latest, macos-15, macos-15-intel}`
+  × JDK 25 (Intel mac best-effort). windows-aarch64 is descoped from CI for now (owner call,
+  2026-07-13): Temurin publishes no JDK 25 for windows-arm, so `setup-java` fails before any
+  test runs; Azul Zulu does ship `win_aarch64` JDK 25 builds if the platform is ever wanted.
+  Natives manifests still cover it, so only the CI job is missing, not distribution support.
 - **ABI-drift canary** (scheduled weekly): run the extractor against slang `master`'s headers and
   diff the model — early warning that a new method/enum appeared (benign, plan regen) or that a
   validation tripped (escalate upstream while it's still cheap to fix — the slang repo treats
@@ -564,14 +566,14 @@ S ≈ a day, M ≈ 2–4 days, L ≈ 1–2 weeks of focused work.
 - Hand-written micro-binding (no generator yet): loader + `spGetBuildTagString` +
   `slang_createGlobalSession2` + vtable call `IGlobalSession::getBuildTagString` (slot 8) +
   `release` (slot 2).
-- GitHub Actions matrix (all six OS×arch, arm-Windows best-effort) runs it.
+- GitHub Actions matrix (see §12 for the platform set) runs it.
 - **Exit:** CI prints matching build tags from the C path and the COM path on every platform.
-- **Status (2026-07-13): complete locally.** Smoke tests green on macos-aarch64 against both a
-  local Slang build and the official v2026.13 binaries; all six platform manifests recorded and
-  committed; `ci.yml` written. First verified on a foojay-provisioned JDK 26.0.1 toolchain, then
-  re-verified on JDK 25 when the baseline was revised to the LTS (§10) later the same day.
-  Remaining: push to GitHub and confirm the matrix on the other five platforms. Deviation:
-  Spotless deferred to M1.
+- **Status (2026-07-13): complete.** Smoke tests verified locally on macos-aarch64 against both
+  a local Slang build and the official v2026.13 binaries (first on a foojay-provisioned JDK
+  26.0.1, re-verified on JDK 25 when the baseline was revised to the LTS, §10). Pushed to
+  github.com/RefuX/slang-java; CI matrix green on linux-x86_64, linux-aarch64, windows-x86_64,
+  macos-aarch64, and macos-x86_64. windows-aarch64 descoped from CI (owner call — §12).
+  Deviation: Spotless deferred to M1.
 
 ### M1 — Hand-written compile pipeline: validate ergonomics & lifetimes (M)
 - Hand-write minimal `SessionDesc`/`TargetDesc` layouts and the

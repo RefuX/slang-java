@@ -21,9 +21,11 @@ jobs:
           - { platform: linux-aarch64, runner: ubuntu-24.04-arm }
           - { platform: windows-x86_64, runner: windows-latest }
           - { platform: macos-aarch64, runner: macos-15 }
-          # Best-effort platforms (newer / smaller runner pools) — DESIGN.md §16 M0.
-          - { platform: windows-aarch64, runner: windows-11-arm, experimental: true }
+          # Best-effort platform (shrinking Intel runner pool) — DESIGN.md §16 M0.
           - { platform: macos-x86_64, runner: macos-15-intel, experimental: true }
+          # windows-aarch64 is deliberately not in CI for now: Temurin publishes no JDK 25
+          # for windows-arm (setup-java fails before the tests run). Zulu does ship one if
+          # this platform is ever wanted — see DESIGN.md §12.
     runs-on: ${{ matrix.runner }}
     continue-on-error: ${{ matrix.experimental == true }}
     steps:
