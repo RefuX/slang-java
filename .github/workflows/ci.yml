@@ -29,16 +29,16 @@ jobs:
     runs-on: ${{ matrix.runner }}
     continue-on-error: ${{ matrix.experimental == true }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Runs Gradle and satisfies the JDK 25 toolchain the build requests (DESIGN.md §10);
       # the foojay resolver would auto-provision it otherwise.
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 25
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Download pinned Slang natives (verified against committed manifest)
         run: ./gradlew :natives:downloadNatives --console=plain
