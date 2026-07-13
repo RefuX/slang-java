@@ -680,6 +680,22 @@ S ≈ a day, M ≈ 2–4 days, L ≈ 1–2 weeks of focused work.
 - Generic upcall COM factory + `ISlangBlob`/`ISlangFileSystem` support, `MapFileSystem`,
   `PathFileSystem`; refcount stress tests; shared-arena audit.
 - **Exit:** compile a multi-file module graph served entirely from a Java `Map<String,String>`.
+- **Status (2026-07-13): complete.** `ffi.JavaComObject` implements the §6 design exactly:
+  per-instance 16-byte `[vtable* | id]` allocations in per-instance shared arenas (freed on the
+  last release), shared IUnknown upcall stubs (queryInterface answers the interface chain's
+  IIDs — parsed from the generated `IID` strings — and add-refs; every stub catches Throwable,
+  since an escaping exception would kill the VM), a strong registry pinning Java objects while
+  native code holds references, and Java-side `AtomicInteger` refcounts starting at the
+  creation reference. `ffi.JavaBlob` and `ffi.JavaFileSystem` build on it ({@code castAs}
+  answers null per the documented contract; blob creation references transfer to the caller per
+  COM out-param rules). Idiomatically: `SlangFileSystem` (`ofMap`, `ofPath` — the design's
+  MapFileSystem/PathFileSystem as factories) + `SessionBuilder.fileSystem(...)`, which releases
+  the creation reference after `createSession` retains the object, tying its lifetime to the
+  session's. **Exit criterion met:** `UpcallFileSystemTest` compiles a three-module graph
+  (main → brdf → common, nested imports) served entirely from a Java `Map`, plus the
+  directory-backed variant, plus a 30-round shared-instance stress test asserting
+  `JavaComObject.liveCount()` returns to baseline — every file-system and blob reference
+  balanced. Full suite: 23 tests, green in normal and debug mode.
 
 ### M6 — Distribution & polish (M)
 - Natives publishing pipeline (download→verify→repackage→sign?→publish), Maven Central setup,

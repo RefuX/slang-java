@@ -43,4 +43,12 @@ public final class SessionDesc {
         io.github.refux.slang.ffi.gen.SessionDesc.setPreprocessorMacros(desc, macroArray);
         io.github.refux.slang.ffi.gen.SessionDesc.setPreprocessorMacroCount(desc, count);
     }
+
+    /**
+     * Points {@code fileSystem} at an {@code ISlangFileSystem} COM pointer (e.g. a
+     * {@link JavaFileSystem}'s {@code segment()}); the session add-refs it during creation.
+     */
+    public static void setFileSystem(MemorySegment desc, MemorySegment fileSystem) {
+        io.github.refux.slang.ffi.gen.SessionDesc.setFileSystem(desc, fileSystem);
+    }
 }

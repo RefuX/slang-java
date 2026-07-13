@@ -4,7 +4,13 @@ Java bindings for the [Slang](https://github.com/shader-slang/slang) shading-lan
 built on the Java Foreign Function & Memory API (FFM) — **pure Java, no JNI, no native glue of
 our own**. Binds the official Khronos-signed Slang release binaries directly.
 
-**Status: milestone M4 (reflection) complete.** The full lazy reflection tree mirrors slang.h's
+**Status: milestone M5 (upcalls) complete.** Slang interfaces can now be implemented *in Java*:
+`import`/`#include` resolve through a `SlangFileSystem` (map- or directory-backed, or any
+lambda) via Java-implemented `ISlangFileSystem`/`ISlangBlob` COM objects — upcall stubs,
+registry-pinned instances, Java-side refcounts, with a stress test proving every native
+reference balances.
+
+Previously, milestone M4: The full lazy reflection tree mirrors slang.h's
 C++ wrapper classes — 11 generated typed classes (166 methods) with hand-polished veneers:
 `linked.layout(0).parameters()`, struct field offsets, vector/matrix shapes, entry-point stage
 and thread-group size, plus `toJson()` via Slang's own reflection-JSON emitter. The Slang user
@@ -92,6 +98,5 @@ try (GlobalSession global = Slang.createGlobalSession();
 
 ## Next milestone
 
-**M5** — upcalls: implementing Slang interfaces *in* Java — `ISlangFileSystem` backed by a
-`Map` or `java.nio.file.Path`, so `import`/`#include` resolve through Java code (the main
-integration point for engines with pack files).
+**M6** — distribution & polish: per-platform natives jars published to Maven Central, javadoc,
+the LWJGL Vulkan sample, the weekly ABI-drift canary, and the version-compatibility story.

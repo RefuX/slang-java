@@ -26,6 +26,7 @@ public final class SessionBuilder {
     private final List<Path> searchPaths = new ArrayList<>();
     private final Map<String, String> defines = new LinkedHashMap<>();
     private Consumer<String> onDiagnostics;
+    private SlangFileSystem fileSystem;
 
     SessionBuilder(GlobalSession global) {
         this.global = global;
@@ -63,6 +64,16 @@ public final class SessionBuilder {
      */
     public SessionBuilder onDiagnostics(Consumer<String> consumer) {
         this.onDiagnostics = consumer;
+        return this;
+    }
+
+    /**
+     * Resolves the session's {@code import}s/{@code #include}s through Java instead of the OS
+     * file system — see {@link SlangFileSystem} for ready-made map- and directory-backed
+     * implementations.
+     */
+    public SessionBuilder fileSystem(SlangFileSystem fileSystem) {
+        this.fileSystem = fileSystem;
         return this;
     }
 
@@ -108,7 +119,26 @@ public final class SessionBuilder {
                 SessionDesc.setPreprocessorMacros(sessionDesc, macros, defines.size());
             }
 
-            return new Session(global.ffi().createSession(sessionDesc), onDiagnostics);
+            io.github.refux.slang.ffi.JavaFileSystem nativeFileSystem = null;
+            if (fileSystem != null) {
+                SlangFileSystem fs = fileSystem;
+                nativeFileSystem = new io.github.refux.slang.ffi.JavaFileSystem() {
+                    @Override
+                    protected byte[] load(String path) throws Exception {
+                        return fs.loadFile(path);
+                    }
+                };
+                SessionDesc.setFileSystem(sessionDesc, nativeFileSystem.segment());
+            }
+            try {
+                return new Session(global.ffi().createSession(sessionDesc), onDiagnostics);
+            } finally {
+                if (nativeFileSystem != null) {
+                    // The session add-refed it during creation; drop the creation reference so
+                    // the object's lifetime follows the session's.
+                    nativeFileSystem.release();
+                }
+            }
         }
     }
 }
