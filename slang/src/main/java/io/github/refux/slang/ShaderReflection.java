@@ -15,13 +15,19 @@ import java.util.List;
  * points, and type/layout queries. Obtained from {@link ComponentType#layout(long)}; the
  * component stays reachable through this object, keeping the native reflection data alive.
  */
-public final class ShaderReflection extends ShaderReflectionGen {
+public final class ShaderReflection extends io.github.refux.slang.gen.ShaderReflection {
     @SuppressWarnings("unused") // reachability: the component owns the native reflection data
     private final ComponentType component;
 
     ShaderReflection(ComponentType component, long targetIndex) {
         super(component.componentHandle().getLayout(targetIndex), component);
         this.component = component;
+    }
+
+    /** Wraps a raw {@code SlangReflection*}; normally obtained via {@link ComponentType#layout}. */
+    public ShaderReflection(MemorySegment self, Object owner) {
+        super(self, owner);
+        this.component = owner instanceof ComponentType c ? c : null;
     }
 
     /**

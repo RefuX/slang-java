@@ -9,7 +9,7 @@ spotless {
         // never mixes formatter churn into the diff.
         targetExclude(
             "src/main/java/io/github/refux/slang/ffi/gen/**",
-            "src/main/java/io/github/refux/slang/*Gen.java")
+            "src/main/java/io/github/refux/slang/gen/**")
         palantirJavaFormat("2.96.0")
     }
 }

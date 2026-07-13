@@ -8,8 +8,8 @@ import java.lang.foreign.MemorySegment;
  * offset/binding within the enclosing scope, plus links back to the declaration
  * ({@link #variable()}) and the laid-out type ({@link #typeLayout()}).
  */
-public final class VariableLayoutReflection extends VariableLayoutReflectionGen {
-    VariableLayoutReflection(MemorySegment self, Object owner) {
+public final class VariableLayoutReflection extends io.github.refux.slang.gen.VariableLayoutReflection {
+    public VariableLayoutReflection(MemorySegment self, Object owner) {
         super(self, owner);
     }
 

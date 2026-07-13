@@ -6,8 +6,8 @@ import java.lang.foreign.MemorySegment;
  * Reflected {@code slang::VariableReflection}: a declaration — name, type, user attributes —
  * independent of any layout.
  */
-public final class VariableReflection extends VariableReflectionGen {
-    VariableReflection(MemorySegment self, Object owner) {
+public final class VariableReflection extends io.github.refux.slang.gen.VariableReflection {
+    public VariableReflection(MemorySegment self, Object owner) {
         super(self, owner);
     }
 

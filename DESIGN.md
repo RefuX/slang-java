@@ -655,14 +655,15 @@ S ≈ a day, M ≈ 2–4 days, L ≈ 1–2 weeks of focused work.
   null-object conventions).
 - Reflection golden tests (parameter blocks, generics/specialization, entry-point layouts).
 - **Exit:** the user-guide reflection walkthrough is reproducible from Java.
-- **Status (2026-07-13): complete.** The generator now emits one `<Class>Gen` instance class per
-  C++ reflection wrapper class (11 classes, 166 methods) straight from the model's
-  `reflectionWrappers` mapping: methods forward to the `SlangReflectionAPI` downcall the C++
-  inline wrapper compiles to, reflection pointers come back typed via a self-derived
+- **Status (2026-07-13): complete.** The generator now emits one instance class per C++
+  reflection wrapper class into `io.github.refux.slang.gen` (11 classes, 166 methods — same
+  generated-code-lives-in-a-`.gen`-package convention as `ffi`/`ffi.gen`) straight from the
+  model's `reflectionWrappers` mapping: methods forward to the `SlangReflectionAPI` downcall the
+  C++ inline wrapper compiles to, reflection pointers come back typed via a self-derived
   pointee→class table, `const char*` becomes String, C++ overloads become Java overloads, null
   wrapper arguments pass as NULL pointers (default-arg conveniences rely on it), and every
   wrapper threads an `owner` reference keeping the native data's owner reachable. Hand-written
-  same-package veneers add ergonomics: `name()`/`kind()`/`category()`/`stage()` conveniences,
+  veneers in the parent package (same simple name, extending the generated base) add ergonomics: `name()`/`kind()`/`category()`/`stage()` conveniences,
   lazy `List` views (`fields()`, `parameters()`, `entryPoints()`), byte-unit `size()`/`stride()`
   /`offset()` defaults matching the C++ default arguments, `computeThreadGroupSize()` as
   `long[]`, and `ShaderReflection.toJson()` over Slang's reflection-JSON emitter. New idiomatic

@@ -27,7 +27,9 @@ walkthrough as its acceptance test); next is M5 (upcalls / Java file systems), t
   (or set `SLANG_JAVA_LIBRARY_PATH` to any Slang build's lib directory, e.g. a local
   slang checkout's `build/Release/lib`)
 - Format before committing: `./gradlew :slang:spotlessApply` (palantir-java-format; generated
-  `ffi/gen/**` is excluded — the generator's output is the canonical formatting)
+  code is excluded — the generator's output is the canonical formatting). Convention: generated
+  code always lives in a `.gen` package (`ffi/gen` for raw dispatch, `gen` for the reflection
+  wrapper bases); hand-written veneers live in the parent package.
 - Regenerate the bindings (e.g. after a Slang version bump) — two commands, then rerun tests:
   1. `bindgen/extract/.venv/bin/python bindgen/extract/extract_api.py --slang-include <slang-repo>/include --slang-version <ver> --out api/slang-api.json --lock api/slang-abi.lock`
   2. `./gradlew :bindgen:run --args="api/slang-api.json slang/src/main/java"`

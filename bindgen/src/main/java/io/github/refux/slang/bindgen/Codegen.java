@@ -484,16 +484,21 @@ public final class Codegen {
 
     // ------------------------------------------------------------- reflection wrapper classes
 
+    static final String REFLECTION_GEN_PACKAGE = "io.github.refux.slang.gen";
+    static final String VENEER_PACKAGE = "io.github.refux.slang";
+
     /**
-     * Emits one {@code <Class>Gen} instance class per C++ reflection wrapper class, derived from
+     * Emits one generated instance class per C++ reflection wrapper class into the
+     * {@code .gen} package (mirroring the {@code ffi}/{@code ffi.gen} layering), derived from
      * the model's {@code reflectionWrappers} mapping (DESIGN.md §9): each single-call inline
      * method of slang.h's reflection classes becomes a typed Java method forwarding to the
      * corresponding {@code SlangReflectionAPI} downcall. Reflection pointers are typed via the
      * self-derived pointee→class table; {@code const char*} becomes String; every wrapper
      * carries an {@code owner} reference that keeps the native data's owner reachable.
-     * Hand-written subclasses in the same package (without the Gen suffix) add ergonomics.
+     * Hand-written subclasses in the parent package (same simple name) add ergonomics.
      */
     void emitReflectionWrappers(Path rootPkgDir) throws IOException {
+        rootPkgDir = rootPkgDir.resolve("gen");
         Files.createDirectories(rootPkgDir);
         Map<String, Map<String, Object>> fnByName = new LinkedHashMap<>();
         for (Object fo : Json.array(model.get("functions"))) {
@@ -554,11 +559,11 @@ public final class Codegen {
                 + "spReflection* downcall that slang.h's inline C++ wrapper compiles to. "
                 + "Reflection data is owned by the component/session it came from; the "
                 + "{@code owner} reference keeps that owner reachable. The hand-written "
-                + "subclass {@code " + cls + "} adds ergonomics."));
-        sb.append("public abstract class ").append(cls).append("Gen {\n");
-        sb.append("    final MemorySegment self;\n");
-        sb.append("    final Object owner;\n\n");
-        sb.append("    ").append(cls).append("Gen(MemorySegment self, Object owner) {\n");
+                + "subclass {@code " + VENEER_PACKAGE + "." + cls + "} adds ergonomics."));
+        sb.append("public abstract class ").append(cls).append(" {\n");
+        sb.append("    protected final MemorySegment self;\n");
+        sb.append("    protected final Object owner;\n\n");
+        sb.append("    protected ").append(cls).append("(MemorySegment self, Object owner) {\n");
         sb.append("        this.self = self;\n        this.owner = owner;\n    }\n\n");
         sb.append("    /** The raw native reflection pointer (borrowed; owned by the program). */\n");
         sb.append("    public final MemorySegment segment() {\n        return self;\n    }\n\n");
@@ -584,7 +589,8 @@ public final class Codegen {
                     callArgs.add("arena.allocateFrom(" + pname + ")");
                     needsArena = true;
                 } else if (wrapped != null && !wrapped.equals("MemorySegment")) {
-                    sigParams.add(wrapped + " " + pname);
+                    // Veneer types by FQN: their simple names shadow ours in this package.
+                    sigParams.add(VENEER_PACKAGE + "." + wrapped + " " + pname);
                     // The C ABI accepts null pointers (default-arg conveniences rely on it).
                     callArgs.add("(" + pname + " == null ? MemorySegment.NULL : " + pname + ".self)");
                 } else {
@@ -603,9 +609,9 @@ public final class Codegen {
                 retDecl = "String";
                 body = "        return SlangNative.readUtf8(" + call + ");\n";
             } else if (retWrapper != null && !retWrapper.equals("MemorySegment")) {
-                retDecl = retWrapper;
+                retDecl = VENEER_PACKAGE + "." + retWrapper;
                 body = "        MemorySegment result = " + call + ";\n"
-                    + "        return result.address() == 0 ? null : new " + retWrapper
+                    + "        return result.address() == 0 ? null : new " + retDecl
                     + "(result, owner);\n";
             } else {
                 JType jt = jtype(retType);
@@ -629,7 +635,7 @@ public final class Codegen {
                 .append(body).append("    }\n\n");
         }
         sb.append("}\n");
-        write(dir, "io.github.refux.slang", cls + "Gen", sb.toString());
+        write(dir, REFLECTION_GEN_PACKAGE, cls, sb.toString());
     }
 
     /** String for char pointers, a wrapper class name for reflection pointers, else raw. */

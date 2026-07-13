@@ -11,8 +11,8 @@ import java.util.List;
  * Reflected {@code slang::EntryPointReflection}: name, stage, parameters, and (for compute)
  * the thread-group size.
  */
-public final class EntryPointReflection extends EntryPointReflectionGen {
-    EntryPointReflection(MemorySegment self, Object owner) {
+public final class EntryPointReflection extends io.github.refux.slang.gen.EntryPointReflection {
+    public EntryPointReflection(MemorySegment self, Object owner) {
         super(self, owner);
     }
 

@@ -10,8 +10,8 @@ import java.util.List;
  * sizes, strides, alignment, field offsets, binding ranges. Per the user guide, size/stride/
  * alignment default to bytes (the {@code uniform} layout unit) unless a category is given.
  */
-public final class TypeLayoutReflection extends TypeLayoutReflectionGen {
-    TypeLayoutReflection(MemorySegment self, Object owner) {
+public final class TypeLayoutReflection extends io.github.refux.slang.gen.TypeLayoutReflection {
+    public TypeLayoutReflection(MemorySegment self, Object owner) {
         super(self, owner);
     }
 

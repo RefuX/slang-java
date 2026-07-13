@@ -9,8 +9,8 @@ import java.util.List;
  * struct fields, element types of arrays/vectors, matrix dimensions. Layout questions (sizes,
  * offsets, registers) belong to {@link TypeLayoutReflection}.
  */
-public final class TypeReflection extends TypeReflectionGen {
-    TypeReflection(MemorySegment self, Object owner) {
+public final class TypeReflection extends io.github.refux.slang.gen.TypeReflection {
+    public TypeReflection(MemorySegment self, Object owner) {
         super(self, owner);
     }
 
