@@ -265,6 +265,14 @@ extensions.configure<BasePluginExtension>("base") {
     archivesName = "slang-java-natives"
 }
 
+// Disable Gradle Module Metadata for the natives module. The payloads ship as classifier
+// artifacts (not GMM variants), so a `.module` would only advertise the empty main jar and could
+// shadow a `:<os>-<arch>` classifier request. Plain Maven POM + classifier resolution is the
+// robust path here. (The library keeps its GMM — it is a normal library.)
+tasks.withType<GenerateModuleMetadata>().configureEach {
+    enabled = false
+}
+
 // One classifier jar per platform. Returns the jar tasks so the publication can attach them.
 // Platforms whose manifest hasn't been recorded yet are skipped (so `downloadNatives` can run
 // to create them on a fresh checkout, or when regenerating them); the release always records

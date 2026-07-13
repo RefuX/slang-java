@@ -66,4 +66,4 @@ jobs:
           --title "${GITHUB_REF_NAME}"
           --generate-notes
           slang/build/libs/*.jar
-          natives/build/libs/*.jar
+          natives/build/libs/slang-java-natives-*-{linux,macos,windows}-*.jar
