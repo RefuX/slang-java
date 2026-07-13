@@ -67,7 +67,7 @@ class IdiomaticApiTest {
                     """);
             try (ComponentType linked =
                     session.composite(module, module.entryPoint("computeMain")).link()) {
-                List<ShaderReflection.Parameter> parameters = linked.layout(0).parameters();
+                List<VariableLayoutReflection> parameters = linked.layout(0).parameters();
                 assertEquals(1, parameters.size());
                 assertEquals("result", parameters.get(0).name());
                 assertEquals(

@@ -14,9 +14,10 @@ Guidance for Claude Code when working in this repository.
 Java bindings for the Slang shader compiler built on FFM — pure Java, no JNI, binding the
 official Khronos-signed release binaries directly. The design document and M0–M6 milestone plan
 live in [DESIGN.md](DESIGN.md); per-milestone status is recorded inline there. Current state:
-M0–M3 complete (walking skeleton, compile pipeline, slang-bindgen generated bindings, idiomatic
-core API — the DESIGN.md §8 sample runs verbatim); next is M4 (reflection tree), then M5
-(upcalls / Java file systems) and M6 (Maven Central distribution).
+M0–M4 complete (walking skeleton, compile pipeline, slang-bindgen generated bindings, idiomatic
+core API with the DESIGN.md §8 sample verbatim, and the lazy reflection tree with the user-guide
+walkthrough as its acceptance test); next is M5 (upcalls / Java file systems), then M6
+(Maven Central distribution).
 
 ## Commands
 

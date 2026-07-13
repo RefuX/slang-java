@@ -40,7 +40,7 @@ public class ComponentType extends NativeObject {
         return componentHandle().getEntryPointCode(entryPointIndex, targetIndex);
     }
 
-    /** Reflection for {@code targetIndex} (an eager snapshot in M3; the full lazy tree is M4). */
+    /** The lazy reflection tree for {@code targetIndex} (parameters, entry points, layouts). */
     public ShaderReflection layout(long targetIndex) {
         session.checkThread();
         return new ShaderReflection(this, targetIndex);

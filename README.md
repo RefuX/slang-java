@@ -4,7 +4,13 @@ Java bindings for the [Slang](https://github.com/shader-slang/slang) shading-lan
 built on the Java Foreign Function & Memory API (FFM) — **pure Java, no JNI, no native glue of
 our own**. Binds the official Khronos-signed Slang release binaries directly.
 
-**Status: milestone M3 (idiomatic core API) complete.** The "What this will look like" sample
+**Status: milestone M4 (reflection) complete.** The full lazy reflection tree mirrors slang.h's
+C++ wrapper classes — 11 generated typed classes (166 methods) with hand-polished veneers:
+`linked.layout(0).parameters()`, struct field offsets, vector/matrix shapes, entry-point stage
+and thread-group size, plus `toJson()` via Slang's own reflection-JSON emitter. The Slang user
+guide's reflection walkthrough runs from Java as the acceptance test.
+
+Previously, milestone M3: The "What this will look like" sample
 below is now real code — it runs verbatim in the test suite, with try-with-resources lifetimes
 (plus a Cleaner safety net for unclosed wrappers and `-Dio.github.refux.slang.debug=true` leak
 tracing), compiler warnings delivered to a per-session consumer, and compile errors thrown as
@@ -86,6 +92,6 @@ try (GlobalSession global = Slang.createGlobalSession();
 
 ## Next milestone
 
-**M4** — reflection: the lazy reflection tree mirroring slang.h's C++ wrapper classes
-(types, layouts, entry points), generated from the API model's 171 wrapper mappings over the
-173 `spReflection*` downcalls that are already bound.
+**M5** — upcalls: implementing Slang interfaces *in* Java — `ISlangFileSystem` backed by a
+`Map` or `java.nio.file.Path`, so `import`/`#include` resolve through Java code (the main
+integration point for engines with pack files).

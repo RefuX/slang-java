@@ -7,7 +7,9 @@ spotless {
     java {
         // Generated sources keep the generator's deterministic formatting so regeneration
         // never mixes formatter churn into the diff.
-        targetExclude("src/main/java/io/github/refux/slang/ffi/gen/**")
+        targetExclude(
+            "src/main/java/io/github/refux/slang/ffi/gen/**",
+            "src/main/java/io/github/refux/slang/*Gen.java")
         palantirJavaFormat("2.96.0")
     }
 }

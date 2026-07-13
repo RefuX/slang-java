@@ -1,44 +1,76 @@
 package io.github.refux.slang;
 
+import static java.lang.foreign.ValueLayout.ADDRESS;
+
+import io.github.refux.slang.ffi.ISlangBlob;
 import io.github.refux.slang.ffi.SlangNative;
-import io.github.refux.slang.ffi.gen.SlangReflectionAPI;
+import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
-import java.util.ArrayList;
+import java.util.AbstractList;
 import java.util.List;
 
 /**
- * Reflection over a linked program for one target — in M3 an <em>eager snapshot</em> of the
- * top-level shader parameters, copied out of the native reflection data at construction so it
- * has no lifetime coupling to the component. Milestone M4 replaces this with the full lazy
- * reflection tree (types, layouts, entry points) mirroring slang.h's reflection classes.
+ * Reflection over a linked program for one target ({@code slang::ShaderReflection}, a.k.a.
+ * {@code ProgramLayout}) — the root of the lazy reflection tree: global parameters, entry
+ * points, and type/layout queries. Obtained from {@link ComponentType#layout(long)}; the
+ * component stays reachable through this object, keeping the native reflection data alive.
  */
-public final class ShaderReflection {
-
-    /** One top-level shader parameter. */
-    public record Parameter(String name, ParameterCategory category) {}
-
-    private final List<Parameter> parameters;
+public final class ShaderReflection extends ShaderReflectionGen {
+    @SuppressWarnings("unused") // reachability: the component owns the native reflection data
+    private final ComponentType component;
 
     ShaderReflection(ComponentType component, long targetIndex) {
-        // Borrowed pointer, owned by the component; everything is copied out before returning,
-        // and `component` stays strongly reachable (caller frame) for the duration.
-        MemorySegment layout = component.componentHandle().getLayout(targetIndex);
-        int count = SlangReflectionAPI.spReflection_GetParameterCount(layout);
-        List<Parameter> out = new ArrayList<>(count);
-        for (int i = 0; i < count; i++) {
-            MemorySegment parameter = SlangReflectionAPI.spReflection_GetParameterByIndex(layout, i);
-            MemorySegment variable = SlangReflectionAPI.spReflectionVariableLayout_GetVariable(parameter);
-            String name = SlangNative.readUtf8(SlangReflectionAPI.spReflectionVariable_GetName(variable));
-            MemorySegment typeLayout = SlangReflectionAPI.spReflectionVariableLayout_GetTypeLayout(parameter);
-            ParameterCategory category =
-                    ParameterCategory.of(SlangReflectionAPI.spReflectionTypeLayout_GetParameterCategory(typeLayout));
-            out.add(new Parameter(name, category));
-        }
-        this.parameters = List.copyOf(out);
+        super(component.componentHandle().getLayout(targetIndex), component);
+        this.component = component;
     }
 
-    /** The program's top-level shader parameters, in layout order. */
-    public List<Parameter> parameters() {
-        return parameters;
+    /**
+     * The program's top-level shader parameters as a lazy list view. Note the user guide's
+     * caveat: for global <em>uniform</em> parameters grouped into an implicit constant buffer,
+     * prefer traversing {@link #getGlobalParamsVarLayout()}.
+     */
+    public List<VariableLayoutReflection> parameters() {
+        int count = getParameterCount();
+        return new AbstractList<>() {
+            @Override
+            public VariableLayoutReflection get(int index) {
+                return getParameterByIndex(index);
+            }
+
+            @Override
+            public int size() {
+                return count;
+            }
+        };
+    }
+
+    /** The program's entry points as a lazy list view. */
+    public List<EntryPointReflection> entryPoints() {
+        int count = (int) getEntryPointCount();
+        return new AbstractList<>() {
+            @Override
+            public EntryPointReflection get(int index) {
+                return getEntryPointByIndex(index);
+            }
+
+            @Override
+            public int size() {
+                return count;
+            }
+        };
+    }
+
+    /** The whole reflection tree serialized as JSON (Slang's own reflection-JSON emitter). */
+    public String toJson() {
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment outBlob = arena.allocate(ADDRESS);
+            int result = toJson(MemorySegment.NULL, outBlob);
+            if (!SlangNative.succeeded(result)) {
+                throw new SlangException("spReflection_ToJson failed", result);
+            }
+            try (ISlangBlob blob = new ISlangBlob(outBlob.get(ADDRESS, 0))) {
+                return blob.toUtf8String();
+            }
+        }
     }
 }

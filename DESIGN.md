@@ -655,6 +655,25 @@ S ≈ a day, M ≈ 2–4 days, L ≈ 1–2 weeks of focused work.
   null-object conventions).
 - Reflection golden tests (parameter blocks, generics/specialization, entry-point layouts).
 - **Exit:** the user-guide reflection walkthrough is reproducible from Java.
+- **Status (2026-07-13): complete.** The generator now emits one `<Class>Gen` instance class per
+  C++ reflection wrapper class (11 classes, 166 methods) straight from the model's
+  `reflectionWrappers` mapping: methods forward to the `SlangReflectionAPI` downcall the C++
+  inline wrapper compiles to, reflection pointers come back typed via a self-derived
+  pointee→class table, `const char*` becomes String, C++ overloads become Java overloads, null
+  wrapper arguments pass as NULL pointers (default-arg conveniences rely on it), and every
+  wrapper threads an `owner` reference keeping the native data's owner reachable. Hand-written
+  same-package veneers add ergonomics: `name()`/`kind()`/`category()`/`stage()` conveniences,
+  lazy `List` views (`fields()`, `parameters()`, `entryPoints()`), byte-unit `size()`/`stride()`
+  /`offset()` defaults matching the C++ default arguments, `computeThreadGroupSize()` as
+  `long[]`, and `ShaderReflection.toJson()` over Slang's reflection-JSON emitter. New idiomatic
+  enums: `Stage`, `TypeKind`. M3's eager snapshot was replaced by this lazy tree with
+  `parameters()` shape-compatible (`VariableLayoutReflection.name()/category()`).
+  **Exit criterion met:** `ReflectionWalkthroughTest` reproduces the user-guide chapter —
+  parameter names/categories/bindings, cbuffer packing offsets (0/16/28/32, struct size 96),
+  vector/matrix shapes, entry-point stage + `[numthreads(8,4,2)]`, cross-checked against
+  `spReflection_ToJson` output. Full suite: 20 tests, green in normal and debug mode.
+  Deferred: generics/specialization golden tests ride with the specialize() API surface (M6
+  stretch); DeclReflection/FunctionReflection/GenericReflection veneers are shells until needed.
 
 ### M5 — Upcalls: Java file systems (M)
 - Generic upcall COM factory + `ISlangBlob`/`ISlangFileSystem` support, `MapFileSystem`,
