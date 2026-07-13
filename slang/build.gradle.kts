@@ -1,5 +1,12 @@
 plugins {
     `java-library`
+    id("com.diffplug.spotless") version "8.8.0"
+}
+
+spotless {
+    java {
+        palantirJavaFormat("2.96.0")
+    }
 }
 
 group = "io.github.refux"

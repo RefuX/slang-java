@@ -1,9 +1,9 @@
 package io.github.refux.slang.loader;
 
+import java.io.IOException;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.SymbolLookup;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
@@ -60,10 +60,10 @@ public final class SlangLibrary {
      */
     public MemorySegment find(String symbol) {
         return lookup.find(symbol)
-            .orElseThrow(() -> new UnsatisfiedLinkError(
-                "Symbol '" + symbol + "' not found in Slang library loaded from " + location
-                    + " (binding is pinned to Slang " + PINNED_SLANG_VERSION
-                    + "; older libraries lack newer symbols)"));
+                .orElseThrow(() -> new UnsatisfiedLinkError(
+                        "Symbol '" + symbol + "' not found in Slang library loaded from " + location
+                                + " (binding is pinned to Slang " + PINNED_SLANG_VERSION
+                                + "; older libraries lack newer symbols)"));
     }
 
     /** A human-readable description of where the library was loaded from, for diagnostics. */
@@ -84,14 +84,12 @@ public final class SlangLibrary {
         for (String name : new String[] {"slang-compiler", "slang"}) {
             try {
                 String mapped = System.mapLibraryName(name);
-                return new SlangLibrary(
-                    SymbolLookup.libraryLookup(mapped, Arena.global()), "system:" + mapped);
+                return new SlangLibrary(SymbolLookup.libraryLookup(mapped, Arena.global()), "system:" + mapped);
             } catch (IllegalArgumentException notFound) {
                 // Try the next candidate name.
             }
         }
-        throw new UnsatisfiedLinkError(
-            "Could not locate the Slang compiler library (slang-compiler). Point -D"
+        throw new UnsatisfiedLinkError("Could not locate the Slang compiler library (slang-compiler). Point -D"
                 + PROPERTY_LIBRARY_PATH + " (or $" + ENV_LIBRARY_PATH + ") at a directory "
                 + "containing the Slang libraries, e.g. the lib/ directory of an official "
                 + "slang-" + PINNED_SLANG_VERSION + " release archive.");
@@ -109,24 +107,23 @@ public final class SlangLibrary {
         if (!Files.isDirectory(dir)) {
             throw new UnsatisfiedLinkError("Slang library path is not a directory: " + dir);
         }
-        for (String name : new String[] {
-                System.mapLibraryName("slang-compiler"), System.mapLibraryName("slang")}) {
+        for (String name : new String[] {System.mapLibraryName("slang-compiler"), System.mapLibraryName("slang")}) {
             Path exact = dir.resolve(name);
             if (Files.exists(exact) && isPlausibleLibraryFile(exact)) {
                 return exact;
             }
         }
         for (String prefix : new String[] {
-                // "libslang-compiler." / "slang-compiler." — never matches libslang-glslang etc.
-                stripSuffixes(System.mapLibraryName("slang-compiler")) + ".",
-                stripSuffixes(System.mapLibraryName("slang")) + "."}) {
+            // "libslang-compiler." / "slang-compiler." — never matches libslang-glslang etc.
+            stripSuffixes(System.mapLibraryName("slang-compiler")) + ".",
+            stripSuffixes(System.mapLibraryName("slang")) + "."
+        }) {
             Optional<Path> versioned = findVersioned(dir, prefix);
             if (versioned.isPresent()) {
                 return versioned.get();
             }
         }
-        throw new UnsatisfiedLinkError(
-            "No Slang compiler library (slang-compiler / slang) found in directory: " + dir);
+        throw new UnsatisfiedLinkError("No Slang compiler library (slang-compiler / slang) found in directory: " + dir);
     }
 
     /** Strips the platform shared-library extension, keeping any "lib" prefix. */
@@ -137,15 +134,14 @@ public final class SlangLibrary {
 
     private static Optional<Path> findVersioned(Path dir, String prefix) {
         try (var files = Files.list(dir)) {
-            return files
-                .filter(Files::isRegularFile)
-                .filter(p -> {
-                    String n = p.getFileName().toString();
-                    return n.startsWith(prefix) && looksLikeSharedLibrary(n);
-                })
-                .filter(SlangLibrary::isPlausibleLibraryFile)
-                // Deterministic choice if several versions are present: highest name wins.
-                .max(Comparator.comparing(p -> p.getFileName().toString()));
+            return files.filter(Files::isRegularFile)
+                    .filter(p -> {
+                        String n = p.getFileName().toString();
+                        return n.startsWith(prefix) && looksLikeSharedLibrary(n);
+                    })
+                    .filter(SlangLibrary::isPlausibleLibraryFile)
+                    // Deterministic choice if several versions are present: highest name wins.
+                    .max(Comparator.comparing(p -> p.getFileName().toString()));
         } catch (IOException e) {
             throw new UnsatisfiedLinkError("Failed to scan Slang library directory " + dir + ": " + e);
         }

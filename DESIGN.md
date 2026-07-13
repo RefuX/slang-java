@@ -522,7 +522,7 @@ libclang-based — regex parsing is fine for a survey, not for slot-perfect code
 | Hidden C++ ABI divergence (vtable slots) between MSVC and Itanium for this header | Low — no overloads, no virtual dtors, no aggregate returns (scanned; generator enforces forever) | M0 smoke test cross-checks a COM call against a C export on all platforms; C-shim fallback documented in §2 |
 | Slang breaks its append-only ABI promise | Low (policy is written into their contributor docs) | `slang-abi.lock` + weekly canary catches it pre-release; pin exact natives |
 | Library renames / packaging churn (e.g. `slang` → `slang-compiler`) | Medium (just happened) | Loader name fallback list; natives manifest pins exact filenames + hashes per release |
-| `SessionDesc` lifetime semantics (does `createSession` copy search paths/macros?) | — | Verify empirically in M1 (valgrind/ASan-style stress: free desc arena, compile, compare); until verified, keep the desc arena open for the session's lifetime (conservative) |
+| `SessionDesc` lifetime semantics | *resolved in M1* | `createSession` **copies** the descriptor contents: `CompilePipelineTest.createSessionCopiesDescriptorContents` clobbers a macro string right after the call and the session keeps the original value. Descriptor arenas may close as soon as the call returns (encoded in the `SessionDesc` javadoc) |
 | Baseline too new for some consumers | Low | Code needs nothing newer than JDK 22 FFM; lowering the baseline below 25 is a one-line toolchain change if users ask |
 | Preview-classfile lock-in | — | Policy §10: preview never ships in published jars |
 | macOS Gatekeeper on extracted dylibs | Low | Byte-exact extraction preserves notarized signatures; JVM writes carry no quarantine attr; CI runs on clean macOS runners to catch regressions |
@@ -583,6 +583,14 @@ S ≈ a day, M ≈ 2–4 days, L ≈ 1–2 weeks of focused work.
 - Empirically settle the `SessionDesc` copy-semantics question; encode the answer in a lifetime
   test and a doc note.
 - **Exit:** `hello-compile` golden test green on the full matrix; leak detector clean.
+- **Status (2026-07-13): complete.** Descriptor layouts hand-written against compiler-verified
+  numbers from `tools/abi-probe.cpp` (TargetDesc 48 B — where the probe caught a non-obvious
+  default, `kDefaultTargetFlags` = 1024; SessionDesc 96 B). Full pipeline green in
+  `CompilePipelineTest`: SPIR-V magic, HLSL text, multi-target index mapping, diagnostics as
+  `SlangCompileException` (and the session stays usable after a failed compile). Copy semantics
+  answered — `createSession` copies (risk row above). Spotless (palantir-java-format) added,
+  clearing the M0 deferral. "Leak detector clean" is interpreted for M1 as deterministic
+  close discipline in every test path; the Cleaner-based detector lands in M3 as designed.
 
 ### M2 — slang-bindgen (L)
 - Stage A extractor (Python + libclang): full model JSON + six-triple layout validation +

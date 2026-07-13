@@ -4,10 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-import org.junit.jupiter.api.Test;
 import io.github.refux.slang.ffi.IGlobalSession;
 import io.github.refux.slang.ffi.SlangNative;
 import io.github.refux.slang.loader.SlangLibrary;
+import org.junit.jupiter.api.Test;
 
 /**
  * M0 exit criterion (DESIGN.md §16): the C export path and the COM vtable path must report the
@@ -27,8 +27,8 @@ class SmokeTest {
         try (IGlobalSession session = IGlobalSession.create()) {
             String comTag = session.getBuildTagString();
             System.out.println("[slang-java] COM build tag : " + comTag);
-            assertEquals(cTag, comTag,
-                "IGlobalSession::getBuildTagString (vtable slot 8) must match spGetBuildTagString");
+            assertEquals(
+                    cTag, comTag, "IGlobalSession::getBuildTagString (vtable slot 8) must match spGetBuildTagString");
         }
     }
 
@@ -37,8 +37,7 @@ class SmokeTest {
         try (IGlobalSession session = IGlobalSession.create()) {
             long afterAddRef = session.addRef();
             long afterRelease = session.release();
-            assertEquals(afterAddRef - 1, afterRelease,
-                "release must undo addRef through vtable slots 1 and 2");
+            assertEquals(afterAddRef - 1, afterRelease, "release must undo addRef through vtable slots 1 and 2");
         }
     }
 }

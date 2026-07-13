@@ -25,18 +25,30 @@ public class IUnknown implements AutoCloseable {
 
     /** {@code uint32_t (*)(void* self)} — shape of both {@code addRef} and {@code release}. */
     private static final MethodHandle MH_UINT_OF_SELF =
-        SlangNative.LINKER.downcallHandle(FunctionDescriptor.of(JAVA_INT, ADDRESS));
+            SlangNative.LINKER.downcallHandle(FunctionDescriptor.of(JAVA_INT, ADDRESS));
 
     private final MemorySegment self;
+    private final boolean owned;
     private boolean closed;
 
     protected IUnknown(MemorySegment pointer) {
+        this(pointer, true);
+    }
+
+    /**
+     * @param owned whether this wrapper holds a native reference of its own, to be released by
+     *     {@link #close()}. COM out-params hand the caller a reference (owned = true), but some
+     *     Slang APIs return borrowed pointers — e.g. modules from {@code ISession.loadModule*}
+     *     are owned by their session and must not be released by the caller.
+     */
+    protected IUnknown(MemorySegment pointer, boolean owned) {
         if (pointer == null || pointer.address() == 0) {
             throw new IllegalArgumentException("null COM object pointer");
         }
         // Pointers read from native memory arrive as zero-length segments; widen exactly enough
         // to read the vtable pointer field at offset 0.
         this.self = pointer.reinterpret(ADDRESS.byteSize());
+        this.owned = owned;
     }
 
     /** The raw COM object pointer, e.g. for passing back into other native calls. */
@@ -46,8 +58,7 @@ public class IUnknown implements AutoCloseable {
 
     /** Reads the function pointer stored in vtable slot {@code slot} of this object. */
     protected final MemorySegment fnPtr(int slot) {
-        MemorySegment vtable = self.get(ADDRESS, 0)
-            .reinterpret((slot + 1) * ADDRESS.byteSize());
+        MemorySegment vtable = self.get(ADDRESS, 0).reinterpret((slot + 1) * ADDRESS.byteSize());
         return vtable.getAtIndex(ADDRESS, slot);
     }
 
@@ -73,12 +84,14 @@ public class IUnknown implements AutoCloseable {
         }
     }
 
-    /** Releases the wrapper's reference. Idempotent. */
+    /** Releases the wrapper's reference (a no-op for borrowed wrappers). Idempotent. */
     @Override
     public final void close() {
         if (!closed) {
             closed = true;
-            release();
+            if (owned) {
+                release();
+            }
         }
     }
 }

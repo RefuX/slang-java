@@ -4,9 +4,10 @@ Java bindings for the [Slang](https://github.com/shader-slang/slang) shading-lan
 built on the Java Foreign Function & Memory API (FFM) — **pure Java, no JNI, no native glue of
 our own**. Binds the official Khronos-signed Slang release binaries directly.
 
-**Status: milestone M0 (walking skeleton) passing.** The core mechanism is proven: a COM vtable
-call (`IGlobalSession::getBuildTagString`, slot 8) and the C export (`spGetBuildTagString`)
-return the same build tag from the official Slang v2026.13 binaries.
+**Status: milestone M1 (compile pipeline) passing.** Slang source compiles to SPIR-V and HLSL
+from Java, end to end, through hand-written FFM bindings against the official Slang v2026.13
+binaries: `createSession → loadModuleFromSourceString → findEntryPointByName → composite →
+link → getEntryPointCode`, with compiler diagnostics surfacing as exceptions.
 See **[DESIGN.md](DESIGN.md)** for the full design document and the M0–M6 plan.
 
 ## Try it
@@ -56,7 +57,8 @@ try (GlobalSession global = Slang.createGlobalSession();
 | Path | What |
 |---|---|
 | [DESIGN.md](DESIGN.md) | Design document + milestone plan (M0–M6, with per-milestone status) |
-| `slang/` | The library. M0: hand-written micro-binding (loader, C downcalls, COM dispatch) + smoke tests |
+| `slang/` | The library. M0+M1 hand-written binding: loader, C downcalls, COM dispatch, descriptor structs, compile pipeline; smoke + golden tests |
+| [tools/abi-probe.cpp](tools/abi-probe.cpp) | Compiler-verified struct offsets/enum values that the hand-written layouts hard-code |
 | `natives/` | `downloadNatives` task: fetches pinned release archives, verifies SHA-256 manifests, extracts payloads |
 | `natives/manifests/` | Committed per-platform payload manifests for Slang v2026.13 (all six os-arch combos) |
 | [.github/workflows/ci.yml](.github/workflows/ci.yml) | Five-platform smoke matrix (Intel-mac best-effort; windows-aarch64 descoped for now) |
@@ -64,5 +66,6 @@ try (GlobalSession global = Slang.createGlobalSession();
 
 ## Next milestone
 
-**M1** — hand-written compile pipeline: `SessionDesc`/`TargetDesc` layouts, source → SPIR-V/HLSL
-golden tests, diagnostics-as-exceptions, and settling descriptor lifetime semantics empirically.
+**M2** — `slang-bindgen`: the libclang extractor producing the committed `slang-api.json` API
+model (validated across all six target ABIs, with an append-only lockfile), and the Java codegen
+that replaces the hand-written `ffi` layer without changing M1's tests.

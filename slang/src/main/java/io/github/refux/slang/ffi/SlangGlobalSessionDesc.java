@@ -31,13 +31,13 @@ public final class SlangGlobalSessionDesc {
     public static final int SLANG_LANGUAGE_VERSION_2025 = 2025;
 
     public static final MemoryLayout LAYOUT = MemoryLayout.structLayout(
-            JAVA_INT.withName("structureSize"),
-            JAVA_INT.withName("apiVersion"),
-            JAVA_INT.withName("minLanguageVersion"),
-            JAVA_BOOLEAN.withName("enableGLSL"),
-            MemoryLayout.paddingLayout(3),
-            MemoryLayout.sequenceLayout(16, JAVA_INT).withName("reserved"))
-        .withName("SlangGlobalSessionDesc");
+                    JAVA_INT.withName("structureSize"),
+                    JAVA_INT.withName("apiVersion"),
+                    JAVA_INT.withName("minLanguageVersion"),
+                    JAVA_BOOLEAN.withName("enableGLSL"),
+                    MemoryLayout.paddingLayout(3),
+                    MemoryLayout.sequenceLayout(16, JAVA_INT).withName("reserved"))
+            .withName("SlangGlobalSessionDesc");
 
     private static final long OFFSET_STRUCTURE_SIZE = offset("structureSize");
     private static final long OFFSET_API_VERSION = offset("apiVersion");
@@ -47,8 +47,7 @@ public final class SlangGlobalSessionDesc {
     static {
         // Guard the hand-computed layout against drift from the C definition.
         if (LAYOUT.byteSize() != 80) {
-            throw new IllegalStateException(
-                "SlangGlobalSessionDesc layout must be 80 bytes, got " + LAYOUT.byteSize());
+            throw new IllegalStateException("SlangGlobalSessionDesc layout must be 80 bytes, got " + LAYOUT.byteSize());
         }
     }
 

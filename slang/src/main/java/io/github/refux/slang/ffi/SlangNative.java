@@ -3,11 +3,11 @@ package io.github.refux.slang.ffi;
 import static java.lang.foreign.ValueLayout.ADDRESS;
 import static java.lang.foreign.ValueLayout.JAVA_INT;
 
+import io.github.refux.slang.loader.SlangLibrary;
 import java.lang.foreign.FunctionDescriptor;
 import java.lang.foreign.Linker;
 import java.lang.foreign.MemorySegment;
 import java.lang.invoke.MethodHandle;
-import io.github.refux.slang.loader.SlangLibrary;
 
 /**
  * Hand-written M0 downcall bindings for the {@code extern "C"} entry points of slang.h that the
@@ -20,14 +20,14 @@ public final class SlangNative {
 
     /** {@code const char* spGetBuildTagString(void)} */
     private static final MethodHandle SP_GET_BUILD_TAG_STRING =
-        downcall("spGetBuildTagString", FunctionDescriptor.of(ADDRESS));
+            downcall("spGetBuildTagString", FunctionDescriptor.of(ADDRESS));
 
     /**
      * {@code SlangResult slang_createGlobalSession2(const SlangGlobalSessionDesc* desc,
      *                                               slang::IGlobalSession** outGlobalSession)}
      */
     private static final MethodHandle SLANG_CREATE_GLOBAL_SESSION2 =
-        downcall("slang_createGlobalSession2", FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS));
+            downcall("slang_createGlobalSession2", FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS));
 
     private static MethodHandle downcall(String symbol, FunctionDescriptor descriptor) {
         return LINKER.downcallHandle(SlangLibrary.get().find(symbol), descriptor);
@@ -55,6 +55,9 @@ public final class SlangNative {
     public static boolean succeeded(int slangResult) {
         return slangResult >= 0;
     }
+
+    /** {@code SLANG_FAIL} — the generic failure result (COM {@code E_FAIL}). */
+    public static final int SLANG_FAIL = 0x80004005;
 
     /**
      * Reads a NUL-terminated UTF-8 C string. The segment is typically a zero-length segment read
