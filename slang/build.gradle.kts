@@ -4,11 +4,10 @@ plugins {
     id("com.vanniktech.maven.publish")
 }
 
-group = "io.github.refux"
-version = "0.0.1"
-
-// The published artifact is io.github.refux:slang-java (set via mavenPublishing.coordinates);
-// keep local jar names in step with it. The Gradle module path stays :slang.
+// group and version come from gradle.properties (single source, shared with the natives
+// artifacts). The published artifact is io.github.refux:slang-java (set via
+// mavenPublishing.coordinates); keep local jar names in step with it. The Gradle module
+// path stays :slang.
 base {
     archivesName = "slang-java"
 }

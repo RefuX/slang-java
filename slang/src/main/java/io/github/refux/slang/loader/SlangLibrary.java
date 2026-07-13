@@ -4,9 +4,12 @@ import java.io.IOException;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.SymbolLookup;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -80,6 +83,13 @@ public final class SlangLibrary {
             Path file = resolveInDirectory(Path.of(dir));
             return new SlangLibrary(SymbolLookup.libraryLookup(file, Arena.global()), file.toString());
         }
+        // Natives artifact on the class path (slang-java-natives-<os>-<arch>): extract its
+        // payload to a per-version cache and load from there.
+        Path extracted = extractClasspathNatives();
+        if (extracted != null) {
+            Path file = resolveInDirectory(extracted);
+            return new SlangLibrary(SymbolLookup.libraryLookup(file, Arena.global()), file.toString());
+        }
         // Fall back to the platform's default search path (PATH / LD_LIBRARY_PATH / DYLD_*).
         for (String name : new String[] {"slang-compiler", "slang"}) {
             try {
@@ -89,10 +99,117 @@ public final class SlangLibrary {
                 // Try the next candidate name.
             }
         }
-        throw new UnsatisfiedLinkError("Could not locate the Slang compiler library (slang-compiler). Point -D"
-                + PROPERTY_LIBRARY_PATH + " (or $" + ENV_LIBRARY_PATH + ") at a directory "
-                + "containing the Slang libraries, e.g. the lib/ directory of an official "
-                + "slang-" + PINNED_SLANG_VERSION + " release archive.");
+        throw new UnsatisfiedLinkError("Could not locate the Slang compiler library (slang-compiler). Add the "
+                + "io.github.refux:slang-java-natives-<os>-<arch> artifact for this platform to the class "
+                + "path, or point -D" + PROPERTY_LIBRARY_PATH + " (or $" + ENV_LIBRARY_PATH
+                + ") at a directory containing the Slang libraries.");
+    }
+
+    /**
+     * Extracts the class-path natives payload (a {@code slang-java-natives-<os>-<arch>} jar's
+     * {@code META-INF/natives/<os>/<arch>/} tree) into a per-version cache directory —
+     * {@code ~/.cache/slang-java/<slangVersion>-<archiveShaPrefix>/} — and returns its
+     * {@code lib} directory, or null when no natives artifact is on the class path.
+     *
+     * <p>The jar carries an {@code index.txt} listing payload files and the library symlinks
+     * (which are not archived — they are recreated here, with a copy fallback where symlinks
+     * are unavailable). Extraction goes to a temporary sibling directory and is moved into
+     * place atomically, so concurrent first runs cannot observe a half-extracted cache; a
+     * {@code .complete} marker gates reuse.
+     */
+    private static Path extractClasspathNatives() {
+        String resourceBase = "META-INF/natives/" + currentOs() + "/" + currentArch() + "/";
+        ClassLoader loader = SlangLibrary.class.getClassLoader();
+        List<String> index = readIndex(loader, resourceBase + "index.txt");
+        if (index == null) {
+            return null;
+        }
+        try {
+            String[] header = index.get(0).split(" "); // "slang <version> <archiveSha256>"
+            Path cacheDir = Path.of(
+                    System.getProperty("user.home"),
+                    ".cache",
+                    "slang-java",
+                    header[1] + "-" + header[2].substring(0, 12));
+            Path marker = cacheDir.resolve(".complete");
+            if (Files.exists(marker)) {
+                return cacheDir.resolve("lib");
+            }
+
+            Path temp = Files.createTempDirectory(Files.createDirectories(cacheDir.getParent()), ".extract-");
+            for (String line : index.subList(1, index.size())) {
+                if (line.startsWith("F ")) {
+                    Path target = temp.resolve(line.substring(2));
+                    Files.createDirectories(target.getParent());
+                    try (var in = loader.getResourceAsStream(resourceBase + line.substring(2))) {
+                        if (in == null) {
+                            throw new IOException("natives jar is missing " + line.substring(2));
+                        }
+                        Files.copy(in, target);
+                    }
+                }
+            }
+            for (String line : index.subList(1, index.size())) {
+                if (line.startsWith("L ")) {
+                    String[] parts = line.substring(2).split(" "); // "<link> <target>"
+                    Path link = temp.resolve(parts[0]);
+                    Files.createDirectories(link.getParent());
+                    try {
+                        Files.createSymbolicLink(link, Path.of(parts[1]));
+                    } catch (IOException | UnsupportedOperationException e) {
+                        Files.copy(link.getParent().resolve(parts[1]), link);
+                    }
+                }
+            }
+            Files.writeString(temp.resolve(".complete"), header[1]);
+            try {
+                Files.move(temp, cacheDir, StandardCopyOption.ATOMIC_MOVE);
+            } catch (IOException raced) {
+                // Another process finished first; use its extraction.
+                if (!Files.exists(marker)) {
+                    throw raced;
+                }
+                deleteRecursively(temp);
+            }
+            return cacheDir.resolve("lib");
+        } catch (IOException e) {
+            throw new UnsatisfiedLinkError("Failed to extract class-path Slang natives: " + e);
+        }
+    }
+
+    private static List<String> readIndex(ClassLoader loader, String resource) {
+        try (var in = loader.getResourceAsStream(resource)) {
+            if (in == null) {
+                return null;
+            }
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8)
+                    .lines()
+                    .filter(line -> !line.isBlank())
+                    .toList();
+        } catch (IOException e) {
+            throw new UnsatisfiedLinkError("Failed to read natives index " + resource + ": " + e);
+        }
+    }
+
+    private static void deleteRecursively(Path root) throws IOException {
+        try (var walk = Files.walk(root)) {
+            for (Path p : walk.sorted(Comparator.reverseOrder()).toList()) {
+                Files.deleteIfExists(p);
+            }
+        }
+    }
+
+    private static String currentOs() {
+        String name = System.getProperty("os.name").toLowerCase(Locale.ROOT);
+        if (name.contains("win")) {
+            return "windows";
+        }
+        return name.contains("mac") ? "macos" : "linux";
+    }
+
+    private static String currentArch() {
+        String arch = System.getProperty("os.arch").toLowerCase(Locale.ROOT);
+        return (arch.equals("aarch64") || arch.equals("arm64")) ? "aarch64" : "x86_64";
     }
 
     /**

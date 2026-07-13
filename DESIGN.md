@@ -240,10 +240,11 @@ slang-java/
 ### Published artifacts
 
 - `io.github.refux:slang-java` — the Java library (JPMS module `io.github.refux.slang`).
-- `io.github.refux:slang-java-natives-{windows,linux,macos}-{x86_64,aarch64}` — one per platform,
-  containing the official release `lib/` payload under
-  `META-INF/natives/<os>/<arch>/`, plus a manifest with versions and SHA-256s.
-- `io.github.refux:slang-java-natives-llvm-…` — optional, the big `slang-llvm` library for CPU targets.
+- `io.github.refux:slang-java-natives` — one module with a classifier artifact per platform
+  (`:<os>-<arch>`, LWJGL-style), each carrying that platform's official release `lib/` payload
+  under `META-INF/natives/<os>/<arch>/` plus an `index.txt` the runtime loader extracts from.
+  The loader picks the host's classifier jar off the class path automatically; consumers can list
+  every platform (cross-platform distributable) or compute the single host classifier.
 
 (Group id `io.github.refux` — the owner's GitHub-user namespace, verifiable on Maven Central
 through the GitHub account without owning a domain. Decided 2026-07-13.)
@@ -704,14 +705,21 @@ S ≈ a day, M ≈ 2–4 days, L ≈ 1–2 weeks of focused work.
   *(LWJGL Vulkan sample descoped — owner decision, 2026-07-13.)*
 - **Exit:** `mvn`/Gradle consumers on all three OSes can compile a shader with two dependencies
   and zero manual native setup.
-- **In progress (2026-07-13):** project version set to **0.0.1**; Maven Central publishing
-  configured for `io.github.refux:slang-java` via `com.vanniktech.maven.publish` 0.37.0 (Central
-  Portal, auto-release, in-memory signing) with a tag-driven `release.yml` that gates on the
-  test suite — the same shape and secret names as the sibling slang-wasm-endive project, whose
-  existing releases prove the `io.github.refux` namespace is already verified on Central
-  (closing Open Question 1 entirely). README carries CI / GitHub-release / Maven Central
-  badges. Remaining: per-platform natives jars + the loader's classpath resolution step,
-  a javadoc pass, and the weekly ABI-drift canary.
+- **In progress (2026-07-13):** project version **0.0.1** (single-sourced in `gradle.properties`);
+  Maven Central publishing via `com.vanniktech.maven.publish` 0.37.0 (Central Portal,
+  auto-release, in-memory signing), same shape/secret-names as the sibling slang-wasm-endive
+  project — whose existing `io.github.refux` releases prove the namespace is already verified on
+  Central (closing Open Question 1). **Natives shipped as one `slang-java-natives` module with a
+  classifier artifact per platform** (LWJGL-style — owner decision over per-platform modules or
+  GMM host-select, the latter ruled out after an experiment showed a plain JVM `runtimeClasspath`
+  either ignores native-attributed variants or hits variant ambiguity). Each classifier jar
+  carries `META-INF/natives/<os>/<arch>/` + an `index.txt`; the loader gained a class-path
+  resolution step that extracts the host's payload to `~/.cache/slang-java/<ver>-<sha>/` (atomic
+  move, `.complete` marker, symlinks recreated from the index) — verified end-to-end by loading
+  and compiling with only the classifier jar on the class path, no `libraryPath`. `release.yml`
+  (tag-driven) downloads all payloads, runs the test suite, publishes both modules, and attaches
+  every jar to the GitHub Release. README carries CI / release / Central badges and the
+  classifier consumption snippet. Remaining: a javadoc pass and the weekly ABI-drift canary.
 
 ### Suggested first PR stack
 1. repo scaffold + CI skeleton (M0a) → 2. natives download + manifests (M0b) → 3. micro-binding +

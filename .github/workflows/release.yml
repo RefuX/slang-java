@@ -1,15 +1,13 @@
 name: Release
 
-# Push a tag like v0.0.1 to release. This publishes io.github.refux:slang-java to Maven Central
+# Push a tag like v0.0.1 to release. This publishes both io.github.refux:slang-java and
+# io.github.refux:slang-java-natives (one classifier artifact per platform) to Maven Central
 # (Central Portal, auto-released — no manual step) and creates the matching GitHub Release.
-# The tag must match the `version` in slang/build.gradle.kts (tag v0.0.1 → version 0.0.1).
+# The tag must match `version` in gradle.properties (tag v0.0.1 → version=0.0.1).
 #
 # Required repository secrets (same set as slang-wasm-endive):
 #   MAVEN_CENTRAL_USERNAME / MAVEN_CENTRAL_PASSWORD — Central Portal token
 #   SIGNING_KEY / SIGNING_PASSWORD — in-memory GPG key for artifact signing
-#
-# Note: this releases the Java library only; the per-platform natives jars are the remaining
-# M6 work (DESIGN.md §16) and will join this workflow when they exist.
 on:
   push:
     tags: ['v*']
@@ -35,15 +33,19 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 
-      # Gate the release on the smoke/golden suite against the pinned official binaries.
-      - name: Download pinned Slang natives
-        run: ./gradlew :natives:downloadNatives --console=plain
+      # Fetch every platform's payload — needed for the natives classifier jars and to run the
+      # tests (which use the host's, linux-x86_64, payload).
+      - name: Download pinned Slang natives (all platforms)
+        run: ./gradlew :natives:downloadNatives -PnativesPlatform=all --console=plain
 
+      # Gate the release on the smoke/golden suite against the pinned official binaries.
       - name: Run tests
         run: ./gradlew :slang:test "-PslangNativesDir=natives/build/payload/linux-x86_64/lib" --console=plain
 
+      # Publishes io.github.refux:slang-java and io.github.refux:slang-java-natives (all
+      # per-platform classifier jars) and auto-releases them.
       - name: Publish to Maven Central
-        run: ./gradlew :slang:publishAndReleaseToMavenCentral --no-configuration-cache --stacktrace
+        run: ./gradlew publishAndReleaseToMavenCentral --no-configuration-cache --stacktrace
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
@@ -58,3 +60,4 @@ jobs:
           --title "${GITHUB_REF_NAME}"
           --generate-notes
           slang/build/libs/*.jar
+          natives/build/libs/*.jar

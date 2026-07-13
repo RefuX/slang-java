@@ -16,24 +16,41 @@ directly. Windows, macOS, and Linux, on x86_64 and aarch64. Requires JDK 25+.
 | Artifact | Purpose |
 |---|---|
 | `io.github.refux:slang-java:0.0.1` | The library: compiler API, reflection, Java file systems |
-| `io.github.refux:slang-java-natives-<os>-<arch>:0.0.1` | The official Slang binaries for one platform: `windows`, `linux`, or `macos` × `x86_64` or `aarch64` |
+| `io.github.refux:slang-java-natives:0.0.1:<os>-<arch>` | The official Slang binaries, as one classifier per platform: `windows`, `linux`, or `macos` × `x86_64` or `aarch64` |
 
 ## Getting started
 
-Add the library plus the natives artifact for each platform you run on — they can all sit on
-the classpath together, and the right one is picked at runtime:
+Add the library plus the natives classifier for each platform you run on — they sit on the
+classpath together and the loader picks the host's at runtime (LWJGL-style):
 
 ```kotlin
 // build.gradle.kts
 dependencies {
     implementation("io.github.refux:slang-java:0.0.1")
-    runtimeOnly("io.github.refux:slang-java-natives-macos-aarch64:0.0.1")
-    runtimeOnly("io.github.refux:slang-java-natives-windows-x86_64:0.0.1")
-    runtimeOnly("io.github.refux:slang-java-natives-linux-x86_64:0.0.1")
+    runtimeOnly("io.github.refux:slang-java-natives:0.0.1:macos-aarch64")
+    runtimeOnly("io.github.refux:slang-java-natives:0.0.1:windows-x86_64")
+    runtimeOnly("io.github.refux:slang-java-natives:0.0.1:linux-x86_64")
 }
 
 tasks.withType<JavaExec> {
     jvmArgs("--enable-native-access=ALL-UNNAMED") // FFM restricted methods, JEP 472
+}
+```
+
+For a host-only build, compute the one classifier you need instead of listing them:
+
+```kotlin
+val slangNatives = "${
+    when {
+        org.gradle.internal.os.OperatingSystem.current().isWindows -> "windows"
+        org.gradle.internal.os.OperatingSystem.current().isMacOsX -> "macos"
+        else -> "linux"
+    }
+}-${if (System.getProperty("os.arch") in listOf("aarch64", "arm64")) "aarch64" else "x86_64"}"
+
+dependencies {
+    implementation("io.github.refux:slang-java:0.0.1")
+    runtimeOnly("io.github.refux:slang-java-natives:0.0.1:$slangNatives")
 }
 ```
 
