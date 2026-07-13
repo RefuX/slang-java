@@ -16,29 +16,26 @@ directly. Windows, macOS, and Linux, on x86_64 and aarch64. Requires JDK 25+.
 | Artifact | Purpose |
 |---|---|
 | `io.github.refux:slang-java:0.0.1` | The library: compiler API, reflection, Java file systems |
-| `io.github.refux:slang-java-natives-<os>-<arch>` | Per-platform Slang binaries — coming soon; see the interim setup below |
+| `io.github.refux:slang-java-natives-<os>-<arch>:0.0.1` | The official Slang binaries for one platform: `windows`, `linux`, or `macos` × `x86_64` or `aarch64` |
 
 ## Getting started
+
+Add the library plus the natives artifact for each platform you run on — they can all sit on
+the classpath together, and the right one is picked at runtime:
 
 ```kotlin
 // build.gradle.kts
 dependencies {
     implementation("io.github.refux:slang-java:0.0.1")
+    runtimeOnly("io.github.refux:slang-java-natives-macos-aarch64:0.0.1")
+    runtimeOnly("io.github.refux:slang-java-natives-windows-x86_64:0.0.1")
+    runtimeOnly("io.github.refux:slang-java-natives-linux-x86_64:0.0.1")
 }
-```
 
-Until the natives artifacts ship, point the library at the `lib/` directory of an official
-[Slang release](https://github.com/shader-slang/slang/releases) (v2026.13 or newer):
-
-```kotlin
 tasks.withType<JavaExec> {
     jvmArgs("--enable-native-access=ALL-UNNAMED") // FFM restricted methods, JEP 472
-    systemProperty("io.github.refux.slang.libraryPath", "/path/to/slang/lib")
 }
 ```
-
-(Setting `SLANG_JAVA_LIBRARY_PATH` in the environment works too, and a `slang-compiler`
-library already on the system search path is found automatically.)
 
 Then compile a shader and reflect on it:
 
@@ -86,6 +83,10 @@ Session session = global.newSession()
 Everything is `AutoCloseable` with try-with-resources as the idiom; anything left unclosed is
 released by a Cleaner when unreachable, and `-Dio.github.refux.slang.debug=true` traces leaks
 to their allocation site and asserts session thread confinement.
+
+To use a different Slang build than the bundled one (say, a local checkout), set
+`-Dio.github.refux.slang.libraryPath=<dir>` or `SLANG_JAVA_LIBRARY_PATH` to any directory
+holding the Slang libraries — it takes precedence over the natives artifacts.
 
 ## How it works
 
