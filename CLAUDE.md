@@ -24,7 +24,14 @@ M2 (the slang-bindgen generator) is next.
 - Run tests: `./gradlew :slang:test -PslangNativesDir=natives/build/payload/<os-arch>/lib`
   (or set `SLANG_JAVA_LIBRARY_PATH` to any Slang build's lib directory, e.g. a local
   slang checkout's `build/Release/lib`)
-- Format before committing: `./gradlew :slang:spotlessApply` (palantir-java-format)
+- Format before committing: `./gradlew :slang:spotlessApply` (palantir-java-format; generated
+  `ffi/gen/**` is excluded — the generator's output is the canonical formatting)
+- Regenerate the bindings (e.g. after a Slang version bump) — two commands, then rerun tests:
+  1. `bindgen/extract/.venv/bin/python bindgen/extract/extract_api.py --slang-include <slang-repo>/include --slang-version <ver> --out api/slang-api.json --lock api/slang-abi.lock`
+  2. `./gradlew :bindgen:run --args="api/slang-api.json slang/src/main/java"`
+  One-time venv setup: `python3 -m venv bindgen/extract/.venv && bindgen/extract/.venv/bin/pip install libclang`.
+  `api/slang-abi.lock` is append-only ABI enforcement; `--reset-lock` is only for lock-format
+  migrations and must be justified in the commit message.
 - Verify hand-written struct layouts: `tools/abi-probe.cpp` (build/run instructions in its header)
 
 ## Conventions

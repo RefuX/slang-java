@@ -3,6 +3,9 @@ build/
 .gradle/
 .kotlin/
 
+# bindgen extractor virtualenv (recreate: python3 -m venv bindgen/extract/.venv && pip install libclang)
+.venv/
+
 # IDE / OS
 .idea/
 *.iml

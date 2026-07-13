@@ -13,3 +13,4 @@ rootProject.name = "slang-java"
 
 include("slang")
 include("natives")
+include("bindgen")

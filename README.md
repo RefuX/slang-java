@@ -4,11 +4,23 @@ Java bindings for the [Slang](https://github.com/shader-slang/slang) shading-lan
 built on the Java Foreign Function & Memory API (FFM) — **pure Java, no JNI, no native glue of
 our own**. Binds the official Khronos-signed Slang release binaries directly.
 
-**Status: milestone M1 (compile pipeline) passing.** Slang source compiles to SPIR-V and HLSL
-from Java, end to end, through hand-written FFM bindings against the official Slang v2026.13
-binaries: `createSession → loadModuleFromSourceString → findEntryPointByName → composite →
-link → getEntryPointCode`, with compiler diagnostics surfacing as exceptions.
+**Status: milestone M2 (slang-bindgen) complete.** The low-level layer is now **generated**:
+a libclang extractor parses the real slang.h, validates the ABI across all six target triples,
+and emits the committed API model ([api/slang-api.json](api/slang-api.json)) plus an append-only
+ABI lockfile; a dependency-free Java codegen turns that into 106 source files — all 27 COM
+interfaces (150 methods), 55 enums, 21 structs, and 195 C downcalls including the full
+`spReflection*` surface. The hand-written classes are thin veneers on top, and the M0/M1 test
+suite passed on the generated bindings without touching a test file.
 See **[DESIGN.md](DESIGN.md)** for the full design document and the M0–M6 plan.
+
+Upgrading to a new Slang release is now a regenerate-and-review operation:
+
+```sh
+bindgen/extract/.venv/bin/python bindgen/extract/extract_api.py \
+    --slang-include <slang-repo>/include --slang-version <ver> \
+    --out api/slang-api.json --lock api/slang-abi.lock
+./gradlew :bindgen:run --args="api/slang-api.json slang/src/main/java"
+```
 
 ## Try it
 
@@ -57,8 +69,10 @@ try (GlobalSession global = Slang.createGlobalSession();
 | Path | What |
 |---|---|
 | [DESIGN.md](DESIGN.md) | Design document + milestone plan (M0–M6, with per-milestone status) |
-| `slang/` | The library. M0+M1 hand-written binding: loader, C downcalls, COM dispatch, descriptor structs, compile pipeline; smoke + golden tests |
-| [tools/abi-probe.cpp](tools/abi-probe.cpp) | Compiler-verified struct offsets/enum values that the hand-written layouts hard-code |
+| `slang/` | The library: generated low-level layer (`ffi/gen`, 106 files) + hand-written veneers (loader, ownership, ergonomics) + smoke/golden tests |
+| `bindgen/` | slang-bindgen: libclang extractor (`extract/extract_api.py`) + Java codegen (`:bindgen:run`) |
+| `api/` | Committed API model (slang-api.json) and append-only ABI lockfile (slang-abi.lock) |
+| [tools/abi-probe.cpp](tools/abi-probe.cpp) | Compiler-verified struct offsets used to cross-check the M1 hand-written layouts |
 | `natives/` | `downloadNatives` task: fetches pinned release archives, verifies SHA-256 manifests, extracts payloads |
 | `natives/manifests/` | Committed per-platform payload manifests for Slang v2026.13 (all six os-arch combos) |
 | [.github/workflows/ci.yml](.github/workflows/ci.yml) | Five-platform smoke matrix (Intel-mac best-effort; windows-aarch64 descoped for now) |
@@ -66,6 +80,6 @@ try (GlobalSession global = Slang.createGlobalSession();
 
 ## Next milestone
 
-**M2** — `slang-bindgen`: the libclang extractor producing the committed `slang-api.json` API
-model (validated across all six target ABIs, with an append-only lockfile), and the Java codegen
-that replaces the hand-written `ffi` layer without changing M1's tests.
+**M3** — the idiomatic core API: `Slang.createGlobalSession()`, session/target builders,
+try-with-resources lifetimes with a Cleaner safety net and debug leak tracing, warnings
+surfacing, and the sample code from DESIGN.md §8 compiling as written.

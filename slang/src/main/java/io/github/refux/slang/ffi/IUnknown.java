@@ -1,32 +1,17 @@
 package io.github.refux.slang.ffi;
 
 import static java.lang.foreign.ValueLayout.ADDRESS;
-import static java.lang.foreign.ValueLayout.JAVA_INT;
 
-import java.lang.foreign.FunctionDescriptor;
+import io.github.refux.slang.ffi.gen.ISlangUnknown;
 import java.lang.foreign.MemorySegment;
-import java.lang.invoke.MethodHandle;
 
 /**
- * Base wrapper for Slang's COM-style objects ({@code ISlangUnknown}): a native pointer whose
- * first field is the vtable pointer, with slots 0–2 being
- * {@code queryInterface} / {@code addRef} / {@code release}.
- *
- * <p>Dispatch works exactly as described in DESIGN.md §5: read the vtable pointer from the
- * object, index the slot, and invoke through an <em>unbound</em> downcall handle (one per
- * function shape, shared across methods) whose leading argument is the function address.
- *
- * <p>The wrapper owns exactly one native reference; {@link #close()} releases it once.
+ * Base wrapper for Slang's COM-style objects ({@code ISlangUnknown}). Dispatch itself lives in
+ * the generated layer ({@code ffi.gen}, static methods taking {@code self}); this class layers
+ * the ownership model on top: a wrapper holds at most one native reference, released exactly
+ * once by {@link #close()}.
  */
 public class IUnknown implements AutoCloseable {
-    public static final int VT_QUERY_INTERFACE = 0;
-    public static final int VT_ADD_REF = 1;
-    public static final int VT_RELEASE = 2;
-
-    /** {@code uint32_t (*)(void* self)} — shape of both {@code addRef} and {@code release}. */
-    private static final MethodHandle MH_UINT_OF_SELF =
-            SlangNative.LINKER.downcallHandle(FunctionDescriptor.of(JAVA_INT, ADDRESS));
-
     private final MemorySegment self;
     private final boolean owned;
     private boolean closed;
@@ -51,24 +36,14 @@ public class IUnknown implements AutoCloseable {
         this.owned = owned;
     }
 
-    /** The raw COM object pointer, e.g. for passing back into other native calls. */
+    /** The raw COM object pointer, for passing into the generated layer or other native calls. */
     public final MemorySegment segment() {
         return self;
     }
 
-    /** Reads the function pointer stored in vtable slot {@code slot} of this object. */
-    protected final MemorySegment fnPtr(int slot) {
-        MemorySegment vtable = self.get(ADDRESS, 0).reinterpret((slot + 1) * ADDRESS.byteSize());
-        return vtable.getAtIndex(ADDRESS, slot);
-    }
-
     /** COM {@code AddRef}; returns the new reference count. */
     public final long addRef() {
-        try {
-            return Integer.toUnsignedLong((int) MH_UINT_OF_SELF.invokeExact(fnPtr(VT_ADD_REF), self));
-        } catch (Throwable t) {
-            throw SlangNative.rethrow(t);
-        }
+        return Integer.toUnsignedLong(ISlangUnknown.addRef(self));
     }
 
     /**
@@ -77,11 +52,7 @@ public class IUnknown implements AutoCloseable {
      * explicit {@link #addRef()}.
      */
     public final long release() {
-        try {
-            return Integer.toUnsignedLong((int) MH_UINT_OF_SELF.invokeExact(fnPtr(VT_RELEASE), self));
-        } catch (Throwable t) {
-            throw SlangNative.rethrow(t);
-        }
+        return Integer.toUnsignedLong(ISlangUnknown.release(self));
     }
 
     /** Releases the wrapper's reference (a no-op for borrowed wrappers). Idempotent. */

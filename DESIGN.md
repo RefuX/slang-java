@@ -125,7 +125,9 @@ schema less stable than the C ABI.)
 
 ### 3.4 COM-style interfaces — the scan
 
-27 interfaces, 149 virtual methods (own methods / full vtable size incl. bases):
+27 interfaces, 150 virtual methods (own methods / full vtable size incl. bases; the M0 regex
+scan reported 149 — libclang later found the 150th, `IMetadata::isParameterLocationUsed`, which
+is declared without `SLANG_MCALL`; see the M2 status note):
 
 | Interface | Base | Own | Vtable |
 |---|---|---:|---:|
@@ -601,6 +603,26 @@ S ≈ a day, M ≈ 2–4 days, L ≈ 1–2 weeks of focused work.
 - Swap M1's hand-written internals for generated code **without changing M1's tests**.
 - **Exit:** M1 tests pass purely on generated bindings; regen is one documented command; lockfile
   committed.
+- **Status (2026-07-13): complete.** Stage A (`bindgen/extract/extract_api.py`, Python +
+  libclang from the host Xcode toolchain, repo-local venv) parses the real slang.h in C++ mode,
+  validates struct layouts / vtable order / enum values byte-identical across all six target
+  triples (non-host triples parse freestanding with two ABI-irrelevant header shims), and
+  enforces the append-only `api/slang-abi.lock` (1,114 facts; `--reset-lock` exists only for
+  lock-format migrations). Stage B (`:bindgen:run`, dependency-free Java) emits 106 files:
+  FfiSupport, 55 enum classes, 21 struct layout classes (offset-based accessors, so
+  `SpecializationArg`'s union members simply overlap), 27 interfaces with static jextract-style
+  dispatch taking `self`, and 195 C downcalls with per-function lazy holders. The hand-written
+  `ffi` classes became thin veneers over `ffi.gen`; the M0+M1 test files ran unchanged and
+  green, and a new `GeneratedBindingsTest` drives generated-only surface (`getLayout` slot 4 +
+  `spReflection_GetParameterCount`). Regeneration is deterministic (byte-identical re-runs) and
+  documented in CLAUDE.md.
+  **Findings the generator surfaced:** the true vtable method count is 150 (§3.4 note) because
+  `IMetadata::isParameterLocationUsed` is declared without `SLANG_NO_THROW`/`SLANG_MCALL`
+  (benign on 64-bit targets, worth an upstream header fix); seven
+  `spReflectionTypeLayout_getSubObjectRange*` declarations sit inside `#if 0` and are correctly
+  absent from the model (the M0 regex had counted them); and two functions are declared in
+  slang.h but **not exported** by the official v2026.13 library (`slang_getEmbeddedCoreModule`,
+  `spReflection_GetSession`) — the concrete reason function handles bind lazily.
 
 ### M3 — Idiomatic core API (M)
 - Hand-written layer of §8: sessions/modules/linking/target code, exceptions, enums, builders,

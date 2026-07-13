@@ -1,39 +1,19 @@
 package io.github.refux.slang.ffi;
 
 import static java.lang.foreign.ValueLayout.ADDRESS;
-import static java.lang.foreign.ValueLayout.JAVA_INT;
-import static java.lang.foreign.ValueLayout.JAVA_LONG;
 
 import io.github.refux.slang.SlangCompileException;
 import java.lang.foreign.Arena;
-import java.lang.foreign.FunctionDescriptor;
 import java.lang.foreign.MemorySegment;
-import java.lang.invoke.MethodHandle;
 
 /**
- * M1 micro-binding of {@code slang::ISession} — module loading and composition (slots from the
- * v2026.13 scan; full 24-slot interface arrives with the M2 generator).
+ * Wrapper for {@code slang::ISession} — module loading and composition. Raw vtable dispatch
+ * lives in the generated {@code ffi.gen.ISession}.
  *
  * <p>Not thread-safe: confine a session and everything loaded through it to one thread at a time
  * (DESIGN.md §11).
  */
 public final class ISession extends IUnknown {
-    public static final int VT_CREATE_COMPOSITE_COMPONENT_TYPE = 6;
-    public static final int VT_LOAD_MODULE_FROM_SOURCE_STRING = 20;
-
-    /**
-     * {@code IModule* loadModuleFromSourceString(const char* moduleName, const char* path,
-     * const char* string, IBlob** outDiagnostics)}
-     */
-    private static final MethodHandle MH_LOAD_MODULE_FROM_SOURCE_STRING = SlangNative.LINKER.downcallHandle(
-            FunctionDescriptor.of(ADDRESS, ADDRESS, ADDRESS, ADDRESS, ADDRESS, ADDRESS));
-
-    /**
-     * {@code SlangResult createCompositeComponentType(IComponentType* const*, SlangInt,
-     * IComponentType**, ISlangBlob**)}
-     */
-    private static final MethodHandle MH_CREATE_COMPOSITE = SlangNative.LINKER.downcallHandle(
-            FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS, JAVA_LONG, ADDRESS, ADDRESS));
 
     ISession(MemorySegment pointer) {
         super(pointer);
@@ -50,10 +30,12 @@ public final class ISession extends IUnknown {
     public IModule loadModuleFromSourceString(String moduleName, String path, String source) {
         try (Arena arena = Arena.ofConfined()) {
             MemorySegment outDiag = arena.allocate(ADDRESS);
-            MemorySegment module = (MemorySegment) MH_LOAD_MODULE_FROM_SOURCE_STRING.invokeExact(
-                    fnPtr(VT_LOAD_MODULE_FROM_SOURCE_STRING), segment(),
-                    arena.allocateFrom(moduleName), arena.allocateFrom(path),
-                    arena.allocateFrom(source), outDiag);
+            MemorySegment module = io.github.refux.slang.ffi.gen.ISession.loadModuleFromSourceString(
+                    segment(),
+                    arena.allocateFrom(moduleName),
+                    arena.allocateFrom(path),
+                    arena.allocateFrom(source),
+                    outDiag);
             if (module.address() == 0) {
                 String diagnostics = Diagnostics.consume(outDiag);
                 throw new SlangCompileException(
@@ -61,10 +43,6 @@ public final class ISession extends IUnknown {
             }
             Diagnostics.consume(outDiag); // release a warnings blob if one was produced (M1 drops it)
             return new IModule(module);
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Throwable t) {
-            throw SlangNative.rethrow(t);
         }
     }
 
@@ -81,19 +59,10 @@ public final class ISession extends IUnknown {
             }
             MemorySegment outComposite = arena.allocate(ADDRESS);
             MemorySegment outDiag = arena.allocate(ADDRESS);
-            int result = (int) MH_CREATE_COMPOSITE.invokeExact(
-                    fnPtr(VT_CREATE_COMPOSITE_COMPONENT_TYPE),
-                    segment(),
-                    array,
-                    (long) components.length,
-                    outComposite,
-                    outDiag);
+            int result = io.github.refux.slang.ffi.gen.ISession.createCompositeComponentType(
+                    segment(), array, components.length, outComposite, outDiag);
             Diagnostics.check("ISession::createCompositeComponentType", result, outDiag);
             return new IComponentType(outComposite.get(ADDRESS, 0));
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Throwable t) {
-            throw SlangNative.rethrow(t);
         }
     }
 }
