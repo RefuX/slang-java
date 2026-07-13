@@ -603,7 +603,9 @@ S ≈ a day, M ≈ 2–4 days, L ≈ 1–2 weeks of focused work.
 - Swap M1's hand-written internals for generated code **without changing M1's tests**.
 - **Exit:** M1 tests pass purely on generated bindings; regen is one documented command; lockfile
   committed.
-- **Status (2026-07-13): complete.** Stage A (`bindgen/extract/extract_api.py`, Python +
+- **Status (2026-07-13): complete — CI matrix green on all five platforms** (linux-x86_64/
+  aarch64, windows-x86_64, macos-aarch64/x86_64 all passed the full suite on the generated
+  bindings). Stage A (`bindgen/extract/extract_api.py`, Python +
   libclang from the host Xcode toolchain, repo-local venv) parses the real slang.h in C++ mode,
   validates struct layouts / vtable order / enum values byte-identical across all six target
   triples (non-host triples parse freestanding with two ABI-irrelevant header shims), and
