@@ -4,7 +4,13 @@ Java bindings for the [Slang](https://github.com/shader-slang/slang) shading-lan
 built on the Java Foreign Function & Memory API (FFM) — **pure Java, no JNI, no native glue of
 our own**. Binds the official Khronos-signed Slang release binaries directly.
 
-**Status: milestone M2 (slang-bindgen) complete.** The low-level layer is now **generated**:
+**Status: milestone M3 (idiomatic core API) complete.** The "What this will look like" sample
+below is now real code — it runs verbatim in the test suite, with try-with-resources lifetimes
+(plus a Cleaner safety net for unclosed wrappers and `-Dio.github.refux.slang.debug=true` leak
+tracing), compiler warnings delivered to a per-session consumer, and compile errors thrown as
+`SlangCompileException` carrying the compiler's diagnostics.
+
+Previously, milestone M2: The low-level layer is now **generated**:
 a libclang extractor parses the real slang.h, validates the ABI across all six target triples,
 and emits the committed API model ([api/slang-api.json](api/slang-api.json)) plus an append-only
 ABI lockfile; a dependency-free Java codegen turns that into 106 source files — all 27 COM
@@ -40,14 +46,14 @@ SLANG_JAVA_LIBRARY_PATH=$SLANG_REPO/build/Release/lib ./gradlew :slang:test
 The JDK 25 toolchain is auto-provisioned via foojay if not installed; only a JDK able to run
 Gradle is needed. Tests pass `--enable-native-access=ALL-UNNAMED` (JEP 472) automatically.
 
-## What the final API will look like
+## What the API looks like (working today)
 
 ```java
 try (GlobalSession global = Slang.createGlobalSession();
      Session session = global.newSession()
-         .target(CompileTarget.SPIRV)
+         .target(CompileTarget.SPIRV, t -> t.profile("spirv_1_5"))
          .create()) {
-    Module module = session.loadModule("hello");
+    Module module = session.loadModuleFromSource("hello", source);
     try (ComponentType linked = session.composite(module, module.entryPoint("main")).link()) {
         byte[] spirv = linked.entryPointCode(0, 0);
         ShaderReflection reflection = linked.layout(0);
@@ -80,6 +86,6 @@ try (GlobalSession global = Slang.createGlobalSession();
 
 ## Next milestone
 
-**M3** — the idiomatic core API: `Slang.createGlobalSession()`, session/target builders,
-try-with-resources lifetimes with a Cleaner safety net and debug leak tracing, warnings
-surfacing, and the sample code from DESIGN.md §8 compiling as written.
+**M4** — reflection: the lazy reflection tree mirroring slang.h's C++ wrapper classes
+(types, layouts, entry points), generated from the API model's 171 wrapper mappings over the
+173 `spReflection*` downcalls that are already bound.

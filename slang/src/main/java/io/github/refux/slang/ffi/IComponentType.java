@@ -2,6 +2,7 @@ package io.github.refux.slang.ffi;
 
 import static java.lang.foreign.ValueLayout.ADDRESS;
 
+import io.github.refux.slang.SlangException;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 
@@ -31,6 +32,26 @@ public class IComponentType extends IUnknown {
             int result = io.github.refux.slang.ffi.gen.IComponentType.link(segment(), outLinked, outDiag);
             Diagnostics.check("IComponentType::link", result, outDiag);
             return new IComponentType(outLinked.get(ADDRESS, 0));
+        }
+    }
+
+    /**
+     * Returns the program layout (reflection root) for {@code targetIndex}. The returned pointer
+     * is owned by this component — a borrowed reference, valid only while the component lives.
+     * Throws {@link SlangException} (with the compiler's diagnostics when present) on failure.
+     */
+    public MemorySegment getLayout(long targetIndex) {
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment outDiag = arena.allocate(ADDRESS);
+            MemorySegment layout =
+                    io.github.refux.slang.ffi.gen.IComponentType.getLayout(segment(), targetIndex, outDiag);
+            String diagnostics = Diagnostics.consume(outDiag);
+            if (layout.address() == 0) {
+                throw new SlangException(
+                        "IComponentType::getLayout failed" + (diagnostics != null ? ":\n" + diagnostics : ""),
+                        SlangNative.SLANG_FAIL);
+            }
+            return layout;
         }
     }
 

@@ -49,4 +49,13 @@ public final class TargetDesc {
     public static void setProfile(MemorySegment desc, int profileId) {
         io.github.refux.slang.ffi.gen.TargetDesc.setProfile(desc, profileId);
     }
+
+    /** Replaces {@code flags} (default {@code kDefaultTargetFlags}) with an explicit value. */
+    public static void setFlags(MemorySegment desc, int flags) {
+        io.github.refux.slang.ffi.gen.TargetDesc.setFlags(desc, flags);
+    }
+
+    public static void setForceGlslScalarBufferLayout(MemorySegment desc, boolean force) {
+        io.github.refux.slang.ffi.gen.TargetDesc.setForceGLSLScalarBufferLayout(desc, force);
+    }
 }

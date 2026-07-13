@@ -375,6 +375,9 @@ Platform notes:
 
 ## 8. The idiomatic layer (what users actually write)
 
+*(Implemented in M3 — the sample below runs verbatim as
+`IdiomaticApiTest.designDocSampleRunsAsWritten`.)*
+
 ```java
 import io.github.refux.slang.*;
 
@@ -630,6 +633,21 @@ S ≈ a day, M ≈ 2–4 days, L ≈ 1–2 weeks of focused work.
 - Hand-written layer of §8: sessions/modules/linking/target code, exceptions, enums, builders,
   Cleaner safety net + debug leak tracing, thread-confinement asserts.
 - **Exit:** sample code in §8 compiles and runs as written; API review pass done.
+- **Status (2026-07-13): complete.** The §8 sample runs **verbatim** as
+  `IdiomaticApiTest.designDocSampleRunsAsWritten`. Public surface:
+  `Slang.createGlobalSession()`, `GlobalSession`/`SessionBuilder`/`TargetOptions`,
+  `Session` (module loading with warnings→consumer, composition, debug thread-confinement
+  asserts), `ComponentType`/`Module`/`EntryPoint`, `CompileTarget` + `ParameterCategory` enums
+  (`value()`/`of(int)` escape hatches, unmapped → `UNKNOWN`), and `ShaderReflection` as an
+  eager parameter snapshot (M4 brings the lazy tree). Lifecycle: every wrapper is
+  `NativeObject` — explicit `close()` is idempotent/thread-safe via `Cleaner.Cleanable`, an
+  unclosed wrapper is released by the Cleaner when unreachable (so the sample's inline
+  `module.entryPoint("main")` is safe by design), and `-Dio.github.refux.slang.debug=true`
+  (or `-PslangDebug` for the test task) logs allocation-site leak traces and enforces session
+  thread confinement. The full suite (15 tests) passes in normal and debug mode. Deferred with
+  intent: `entryPointCodeSegment` zero-copy variant (needs blob-lifetime design, M4/M6),
+  `Stage` enum and module `name()` accessors (M4 reflection), generated idiomatic enums
+  (the two hand-written ones become the template).
 
 ### M4 — Reflection (L)
 - Generate raw `spReflection*` bindings + the derived wrapper mapping (§9

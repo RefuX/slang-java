@@ -51,6 +51,12 @@ tasks.test {
             rootProject.layout.projectDirectory.file(nativesDir.get()).asFile.absolutePath)
     }
 
+    // -PslangDebug runs the suite with leak tracing and thread-confinement asserts enabled
+    // (DESIGN.md §16 M3), e.g.: ./gradlew :slang:test -PslangDebug -PslangNativesDir=...
+    if (providers.gradleProperty("slangDebug").isPresent) {
+        systemProperty("io.github.refux.slang.debug", "true")
+    }
+
     // The M0 exit criterion is *printed* build tags — keep test stdout visible in CI logs.
     testLogging {
         showStandardStreams = true

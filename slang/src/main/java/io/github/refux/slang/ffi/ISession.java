@@ -5,6 +5,7 @@ import static java.lang.foreign.ValueLayout.ADDRESS;
 import io.github.refux.slang.SlangCompileException;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
+import java.util.function.Consumer;
 
 /**
  * Wrapper for {@code slang::ISession} — module loading and composition. Raw vtable dispatch
@@ -28,6 +29,16 @@ public final class ISession extends IUnknown {
      * @throws SlangCompileException with the compiler's diagnostics text when compilation fails
      */
     public IModule loadModuleFromSourceString(String moduleName, String path, String source) {
+        return loadModuleFromSourceString(moduleName, path, source, null);
+    }
+
+    /**
+     * As {@link #loadModuleFromSourceString(String, String, String)}, additionally delivering
+     * success diagnostics (warnings) to {@code onDiagnostics} when the compiler produced any and
+     * the consumer is non-null.
+     */
+    public IModule loadModuleFromSourceString(
+            String moduleName, String path, String source, Consumer<String> onDiagnostics) {
         try (Arena arena = Arena.ofConfined()) {
             MemorySegment outDiag = arena.allocate(ADDRESS);
             MemorySegment module = io.github.refux.slang.ffi.gen.ISession.loadModuleFromSourceString(
@@ -36,12 +47,14 @@ public final class ISession extends IUnknown {
                     arena.allocateFrom(path),
                     arena.allocateFrom(source),
                     outDiag);
+            String diagnostics = Diagnostics.consume(outDiag);
             if (module.address() == 0) {
-                String diagnostics = Diagnostics.consume(outDiag);
                 throw new SlangCompileException(
                         diagnostics != null ? diagnostics : "module compilation failed", SlangNative.SLANG_FAIL);
             }
-            Diagnostics.consume(outDiag); // release a warnings blob if one was produced (M1 drops it)
+            if (diagnostics != null && onDiagnostics != null) {
+                onDiagnostics.accept(diagnostics);
+            }
             return new IModule(module);
         }
     }
