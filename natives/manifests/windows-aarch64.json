@@ -1,0 +1,43 @@
+{
+  "slangVersion": "2026.13",
+  "platform": "windows-aarch64",
+  "asset": "slang-2026.13-windows-aarch64.zip",
+  "url": "https://github.com/shader-slang/slang/releases/download/v2026.13/slang-2026.13-windows-aarch64.zip",
+  "sha256": "7b5b32e1aacc308dfd42bf4e3b379de52f2ee67a92866f895084d3bc5146146a",
+  "files": [
+    {"path": "lib/gfx.dll", "size": 2855936, "sha256": "491cce1893f0eb94f2a56ec5897c1e4520ca9f841a6eac48686339f55060b400"},
+    {"path": "lib/slang-compiler.dll", "size": 39822336, "sha256": "08b5485ee5574e211ddfd964c1f7c1cfa3091e0dd8412336d4fa47f5c15d236d"},
+    {"path": "lib/slang-glsl-module.dll", "size": 1931264, "sha256": "e0b9dceac0b08b2f5289827a0ab6877d5e4a27f6c17df180c238b2ecf3354c1e"},
+    {"path": "lib/slang-glslang.dll", "size": 12936192, "sha256": "f86b09d53fdcc7a014157fc88617fbd1b0fa20d1c3c4f8e11079455660635718"},
+    {"path": "lib/slang-rt.dll", "size": 1763328, "sha256": "0f2b187dfe84b13327c90d2ffdff9f5c7df8eade8769633b9565ec2ea38b6a12"},
+    {"path": "lib/slang-standard-module-2026.13/experimental/workgraph.slang", "size": 9233, "sha256": "5ac051e0bbb9e78cad3d7d368aa76045adefe417133182e4b9a783ed711345d7"},
+    {"path": "lib/slang-standard-module-2026.13/experimental/workgraph.slang-module", "size": 107076, "sha256": "0e3c1e1fa822a28b9762fbb8635dd8d6b5d5444426105ececa96e62df206fecc"},
+    {"path": "lib/slang-standard-module-2026.13/slang/WaveMatrix.slang", "size": 36919, "sha256": "7b538d81618f9fe7a8a317dd0e85ff259202a7cc3b34246307880acfc2e7f973"},
+    {"path": "lib/slang-standard-module-2026.13/slang/accelerate-vector-coopmat.slang", "size": 11816, "sha256": "47eed67fbbb15a07f6c3893ccfccf9da4db490997a986a8ba34058e7df1c3cfd"},
+    {"path": "lib/slang-standard-module-2026.13/slang/activations.slang", "size": 5544, "sha256": "17111ed31a33986a8f3e1028754da83f8e8c17ad4eae082b46a6910c486f1469"},
+    {"path": "lib/slang-standard-module-2026.13/slang/bindless-storage.slang", "size": 17464, "sha256": "af5d4c7a6cce1b7c19dcb556823d4855394ee1e0e6d2d2a74887cd3775ec671e"},
+    {"path": "lib/slang-standard-module-2026.13/slang/hash-function.slang", "size": 3761, "sha256": "bee7e1dd58b8ac576189f6543ec9c0bcea49d780c92b3f59649317e7f68c0601"},
+    {"path": "lib/slang-standard-module-2026.13/slang/iactivation.slang", "size": 1041, "sha256": "886d1de409f9788a15272358306771106d356811ba05431d2e2ea4405fdc80bf"},
+    {"path": "lib/slang-standard-module-2026.13/slang/iencoder.slang", "size": 937, "sha256": "d54547342622935f630954e475c532d3e6280b12066456ddb629407bee747c41"},
+    {"path": "lib/slang-standard-module-2026.13/slang/ilayer.slang", "size": 993, "sha256": "f90e83e132de9a1b729b85d85ee64cd7ba20c4b0db1321cfb0058db84792541d"},
+    {"path": "lib/slang-standard-module-2026.13/slang/inline-vector.slang", "size": 6995, "sha256": "4dd82536ccc99a05af682d8f08891906aa8e8190470cc1746a5ffeafffaf20d5"},
+    {"path": "lib/slang-standard-module-2026.13/slang/istorages.slang", "size": 4161, "sha256": "6bd2a6aae09e5bad8a2ef6a3f086f1fee430d859366325f2e343253ba8f06ab4"},
+    {"path": "lib/slang-standard-module-2026.13/slang/ivector.slang", "size": 4355, "sha256": "2d546d6f2e58c0a970b4806c7b01c41eea1728816ba40234273a0de67b53f3fb"},
+    {"path": "lib/slang-standard-module-2026.13/slang/layers.slang", "size": 4049, "sha256": "9a772bf23d5697d1b7325dec59856ea47158e05a95218a4ecb17e6128a277d1e"},
+    {"path": "lib/slang-standard-module-2026.13/slang/mma-linear-layout-help.slang", "size": 58607, "sha256": "6778fc740686062015448effd4536ef35331d62a1ff6f4278e5c7a5af1a8a163"},
+    {"path": "lib/slang-standard-module-2026.13/slang/mma-tiled-cuda.slang", "size": 22361, "sha256": "c002e5bbfe7d73bd05691122ea8d0c860c7defa07fd5f077481fbb7d64874c47"},
+    {"path": "lib/slang-standard-module-2026.13/slang/mma-tiled-layout-helper.slang", "size": 5623, "sha256": "a7f3bacede85b39797927710fb8aa47d952e2621428d0eb23b3b3142d3eef00e"},
+    {"path": "lib/slang-standard-module-2026.13/slang/mma-tiled-metal.slang", "size": 29575, "sha256": "60eb69591e610da07a791ee0ff565c1f56117d5e2f00af5f15c26a16daab1420"},
+    {"path": "lib/slang-standard-module-2026.13/slang/mma-tiled-vulkan.slang", "size": 17827, "sha256": "60b9df04e732f0f9598426a0f175f5556d6904d4711281716a8fa986d824e3c4"},
+    {"path": "lib/slang-standard-module-2026.13/slang/network-parameter-layout-converter.slang", "size": 20429, "sha256": "40c0a26d4204c63977024e609d13d2f041fcfd36103e072fc87a4c523058c3ae"},
+    {"path": "lib/slang-standard-module-2026.13/slang/neural.slang", "size": 1916, "sha256": "598c9c3d987c3231551cb0dbd12bdb6345d0b05f18da5318d1e5b636e5b8d43e"},
+    {"path": "lib/slang-standard-module-2026.13/slang/neural.slang-module", "size": 5119428, "sha256": "88f29e6543079873e86162b0da05419bd8f8bdd1e3e730cefb410be4c125d2b0"},
+    {"path": "lib/slang-standard-module-2026.13/slang/permuto-encoder.slang", "size": 15069, "sha256": "8564f73a57c355c478ca86349c18ec7e7fe321f316c71126531ba1a98f3e4011"},
+    {"path": "lib/slang-standard-module-2026.13/slang/shared-memory-pool.slang", "size": 21744, "sha256": "cc2b1fe4ff31cfdef98cb8d4802edc50508c6b7431ef7a64664b4ad32a9a33e2"},
+    {"path": "lib/slang-standard-module-2026.13/slang/vectorized-reader.slang", "size": 10164, "sha256": "5da65a878563ac190c847a90a85d6a404f4091e159fd2cdbc98730aef005d646"},
+    {"path": "lib/slang.dll", "size": 161280, "sha256": "659e7f931108c2cf503573ef48cf29bfa614586cae241a79e2cb79fcdbcd8b58"}
+  ],
+  "symlinks": [
+
+  ]
+}

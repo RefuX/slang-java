@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  smoke:
+    name: smoke (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { platform: linux-x86_64, runner: ubuntu-latest }
+          - { platform: linux-aarch64, runner: ubuntu-24.04-arm }
+          - { platform: windows-x86_64, runner: windows-latest }
+          - { platform: macos-aarch64, runner: macos-15 }
+          # Best-effort platforms (newer / smaller runner pools) — DESIGN.md §16 M0.
+          - { platform: windows-aarch64, runner: windows-11-arm, experimental: true }
+          - { platform: macos-x86_64, runner: macos-15-intel, experimental: true }
+    runs-on: ${{ matrix.runner }}
+    continue-on-error: ${{ matrix.experimental == true }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Runs Gradle and satisfies the JDK 25 toolchain the build requests (DESIGN.md §10);
+      # the foojay resolver would auto-provision it otherwise.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 25
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Download pinned Slang natives (verified against committed manifest)
+        run: ./gradlew :natives:downloadNatives --console=plain
+
+      - name: Smoke test — C export path vs COM vtable path must agree
+        run: >
+          ./gradlew :slang:test
+          "-PslangNativesDir=natives/build/payload/${{ matrix.platform }}/lib"
+          --console=plain
