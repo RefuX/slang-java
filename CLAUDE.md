@@ -37,6 +37,12 @@ walkthrough as its acceptance test, and Java-implemented COM upcalls serving imp
   `api/slang-abi.lock` is append-only ABI enforcement; `--reset-lock` is only for lock-format
   migrations and must be justified in the commit message.
 - Verify hand-written struct layouts: `tools/abi-probe.cpp` (build/run instructions in its header)
+- Release: push a tag matching the version in `slang/build.gradle.kts` (e.g. `v0.0.1`) —
+  `.github/workflows/release.yml` runs the tests against the pinned binaries, publishes
+  `io.github.refux:slang-java` to Maven Central (auto-released), and creates the GitHub Release.
+  Requires repo secrets `MAVEN_CENTRAL_USERNAME`/`MAVEN_CENTRAL_PASSWORD` and
+  `SIGNING_KEY`/`SIGNING_PASSWORD` (same set as slang-wasm-endive). Tagging needs James's
+  explicit go-ahead, like any push.
 
 ## Conventions
 
