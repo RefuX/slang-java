@@ -8,6 +8,9 @@ import io.github.refux.slang.ffi.IGlobalSession;
  * {@link Slang#createGlobalSession()} and share it; it is safe to use from multiple threads for
  * session creation, while each created {@link Session} stays confined to one thread at a time.
  */
+// Returns owned Session wrappers (which manage their own native handle) and borrows the global
+// session's own handle; nothing leaks, but the resource inspection can't see the transfer.
+@SuppressWarnings("resource")
 public final class GlobalSession extends NativeObject {
     private final IGlobalSession global;
 

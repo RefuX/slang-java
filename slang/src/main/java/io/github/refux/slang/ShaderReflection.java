@@ -15,6 +15,9 @@ import java.util.List;
  * points, and type/layout queries. Obtained from {@link ComponentType#layout(long)}; the
  * component stays reachable through this object, keeping the native reflection data alive.
  */
+// Reads the borrowed, component-owned native reflection handle (never closed here); the resource
+// inspection can't tell it isn't ours to close.
+@SuppressWarnings("resource")
 public final class ShaderReflection extends io.github.refux.slang.gen.ShaderReflection {
     @SuppressWarnings("unused") // reachability: the component owns the native reflection data
     private final ComponentType component;
@@ -66,6 +69,19 @@ public final class ShaderReflection extends io.github.refux.slang.gen.ShaderRefl
         };
     }
 
+    /**
+     * Finds a top-level shader parameter by name (e.g. a global {@code StructuredBuffer<T>}),
+     * or null if the program has no such parameter. Linear scan over {@link #parameters()}.
+     */
+    public VariableLayoutReflection findParameter(String name) {
+        for (VariableLayoutReflection parameter : parameters()) {
+            if (name.equals(parameter.name())) {
+                return parameter;
+            }
+        }
+        return null;
+    }
+
     /** The whole reflection tree serialized as JSON (Slang's own reflection-JSON emitter). */
     public String toJson() {
         try (Arena arena = Arena.ofConfined()) {
@@ -78,5 +94,10 @@ public final class ShaderReflection extends io.github.refux.slang.gen.ShaderRefl
                 return blob.toUtf8String();
             }
         }
+    }
+
+    /** A human-readable dump of the reflection (the reflection JSON), for diagnostics. */
+    public String dump() {
+        return toJson();
     }
 }

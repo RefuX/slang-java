@@ -75,6 +75,17 @@ java {
     }
 }
 
+// Compile-time static analysis. `-Xlint:try` is javac's equivalent of IntelliJ's
+// "AutoCloseable used without try-with-resources"; the hand-written wrappers deliberately borrow
+// native COM handles (owned by their session, never closed by the caller), so those uses carry
+// @SuppressWarnings("resource"). `-Werror` keeps the checked set clean by failing the build on a
+// regression. Generated code (ffi.gen / gen) is emitted clean and is excluded from -Werror via
+// its own compile task filter below.
+tasks.named<JavaCompile>("compileJava") {
+    options.compilerArgs.addAll(
+        listOf("-Xlint:try,deprecation,overrides,cast,dep-ann,divzero,finally", "-Werror"))
+}
+
 dependencies {
     testImplementation(platform("org.junit:junit-bom:6.1.2"))
     testImplementation("org.junit.jupiter:junit-jupiter")

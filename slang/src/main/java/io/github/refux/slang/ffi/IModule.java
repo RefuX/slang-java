@@ -34,4 +34,22 @@ public final class IModule extends IComponentType {
             return new IEntryPoint(out.get(ADDRESS, 0));
         }
     }
+
+    /**
+     * Serializes this module's checked IR to bytes that {@code ISession.loadModuleFromIrBlob} can
+     * reload without re-parsing. The bytes are only readable by a compatible Slang build — key any
+     * on-disk cache by the compiler build tag.
+     */
+    public byte[] serialize() {
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment out = arena.allocate(ADDRESS);
+            int result = io.github.refux.slang.ffi.gen.IModule.serialize(segment(), out);
+            if (!SlangNative.succeeded(result)) {
+                throw new SlangException("IModule::serialize failed", result);
+            }
+            try (ISlangBlob blob = new ISlangBlob(out.get(ADDRESS, 0))) {
+                return blob.toByteArray();
+            }
+        }
+    }
 }

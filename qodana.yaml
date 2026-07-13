@@ -1,0 +1,18 @@
+# Qodana — runs the IntelliJ IDEA inspection engine over this project (the same inspections the
+# IDE shows, including "AutoCloseable used without try-with-resources", which no javac -Xlint
+# covers). Runs in CI (.github/workflows/qodana.yml); locally, `qodana scan` with the Qodana CLI
+# or Docker uses this same config.
+version: "1.0"
+linter: jetbrains/qodana-jvm-community:latest
+
+# The recommended profile is a curated, low-false-positive inspection set. Deliberate exceptions
+# (e.g. borrowed native COM handles) carry @SuppressWarnings in code, which Qodana honours.
+profile:
+  name: qodana.recommended
+
+# Generated code is emitted clean and is not hand-maintained; exclude it from findings.
+exclude:
+  - name: All
+    paths:
+      - slang/src/main/java/io/github/refux/slang/ffi/gen
+      - slang/src/main/java/io/github/refux/slang/gen

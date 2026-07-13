@@ -34,7 +34,7 @@ public final class SessionDesc {
     /** Allocates one zero-initialized instance (structureSize prefilled, per the versioned-struct convention). */
     public static MemorySegment allocate(Arena arena) {
         MemorySegment self = arena.allocate(SIZE, ALIGNMENT);
-        setStructureSize(self, (long) SIZE); // versioned-struct convention
+        setStructureSize(self, SIZE); // versioned-struct convention
         return self;
     }
 
@@ -42,7 +42,7 @@ public final class SessionDesc {
     public static MemorySegment allocateArray(Arena arena, int count) {
         MemorySegment array = arena.allocate(SIZE * count, ALIGNMENT);
         for (int i = 0; i < count; i++) {
-            setStructureSize(element(array, i), (long) SIZE); // versioned-struct convention
+            setStructureSize(element(array, i), SIZE); // versioned-struct convention
         }
         return array;
     }

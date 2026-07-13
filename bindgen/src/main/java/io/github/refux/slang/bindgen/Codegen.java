@@ -308,8 +308,11 @@ public final class Codegen {
                     .append("        self.set(").append(jt.layout()).append(", ")
                     .append(offsetName).append(", value);\n    }\n\n");
                 if (fname.equals("structureSize")) {
-                    structureSizeInit = "        set" + upper + "(self, ("
-                        + jt.carrier() + ") SIZE); // versioned-struct convention\n";
+                    // SIZE is a long constant; cast only when the field's carrier is narrower
+                    // (a cast to long would be redundant and trips -Xlint:cast).
+                    String sizeExpr = jt.carrier().equals("long") ? "SIZE" : "(" + jt.carrier() + ") SIZE";
+                    structureSizeInit =
+                        "        set" + upper + "(self, " + sizeExpr + "); // versioned-struct convention\n";
                 }
             }
         }

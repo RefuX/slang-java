@@ -78,4 +78,52 @@ public final class ISession extends IUnknown {
             return new IComponentType(outComposite.get(ADDRESS, 0));
         }
     }
+
+    /**
+     * Loads a module from previously {@link IModule#serialize() serialized} checked IR, skipping
+     * parse and type-check. The returned module is borrowed (owned by the session).
+     *
+     * @param moduleName the name other modules import it by
+     * @param path a synthetic path used in diagnostics
+     * @param ir the serialized module bytes
+     */
+    public IModule loadModuleFromIrBlob(String moduleName, String path, byte[] ir) {
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment irData = arena.allocate(ir.length);
+            MemorySegment.copy(ir, 0, irData, java.lang.foreign.ValueLayout.JAVA_BYTE, 0, ir.length);
+            // slang_createBlob copies the bytes into a native-owned blob, so irData's arena may close.
+            MemorySegment blob = io.github.refux.slang.ffi.gen.SlangAPI.slang_createBlob(irData, ir.length);
+            MemorySegment outDiag = arena.allocate(ADDRESS);
+            MemorySegment module = io.github.refux.slang.ffi.gen.ISession.loadModuleFromIRBlob(
+                    segment(), arena.allocateFrom(moduleName), arena.allocateFrom(path), blob, outDiag);
+            String diagnostics = Diagnostics.consume(outDiag);
+            if (module.address() == 0) {
+                throw new SlangCompileException(
+                        diagnostics != null ? diagnostics : "module IR load failed", SlangNative.SLANG_FAIL);
+            }
+            return new IModule(module);
+        }
+    }
+
+    /**
+     * Creates a type-conformance component that records that {@code type} implements
+     * {@code interfaceType}. Composited and linked alongside a program (like any component), it
+     * makes the concrete type's witness table available so buffer-sourced existentials of that
+     * interface can dispatch to it — the basis of dynamic-dispatch shader composition.
+     *
+     * @param type the concrete type ({@code slang::TypeReflection*})
+     * @param interfaceType the interface it conforms to ({@code slang::TypeReflection*})
+     * @param conformanceIdOverride the dispatch id to assign, or {@code -1} to auto-assign
+     */
+    public ITypeConformance createTypeConformance(
+            MemorySegment type, MemorySegment interfaceType, long conformanceIdOverride) {
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment out = arena.allocate(ADDRESS);
+            MemorySegment outDiag = arena.allocate(ADDRESS);
+            int result = io.github.refux.slang.ffi.gen.ISession.createTypeConformanceComponentType(
+                    segment(), type, interfaceType, out, conformanceIdOverride, outDiag);
+            Diagnostics.check("ISession::createTypeConformanceComponentType", result, outDiag);
+            return new ITypeConformance(out.get(ADDRESS, 0));
+        }
+    }
 }

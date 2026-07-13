@@ -6,6 +6,10 @@ import io.github.refux.slang.ffi.IComponentType;
  * A unit of shader code — a module, an entry point, a composite, or a linked program. Linked
  * components are where target code and reflection come from.
  */
+// componentHandle() returns a borrowed native handle (never closed by the caller) and owned
+// results (link(), reflection) are wrapped in NativeObjects that manage their lifecycle, so
+// nothing leaks — but the resource inspection can't reason about the borrow/transfer split.
+@SuppressWarnings("resource")
 public class ComponentType extends NativeObject {
     private final Session session;
     private final IComponentType component;

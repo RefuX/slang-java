@@ -12,6 +12,10 @@ import java.util.function.Consumer;
  * the confinement is asserted; concurrent compilation wants one session per thread
  * (DESIGN.md §11).
  */
+// Uses the session's own (NativeObject-managed) native handle and hands newly-created owned
+// handles (modules, composites, conformances) straight to NativeObject wrappers, so no
+// AutoCloseable leaks — the resource inspection just can't see the ownership transfer.
+@SuppressWarnings("resource")
 public final class Session extends NativeObject {
     private final ISession session;
     private final Consumer<String> onDiagnostics;
@@ -33,6 +37,31 @@ public final class Session extends NativeObject {
     public Module loadModuleFromSource(String name, String source) {
         checkThread();
         return new Module(this, session.loadModuleFromSourceString(name, name + ".slang", source, onDiagnostics));
+    }
+
+    /**
+     * Loads a module from {@link Module#serialize() serialized} checked IR, skipping parse and
+     * type-check. Other modules {@code import} it by {@code name}. The IR is only readable by a
+     * compatible Slang build; a mismatch throws {@link SlangCompileException}.
+     */
+    public Module loadModuleFromIr(String name, byte[] ir) {
+        checkThread();
+        return new Module(this, session.loadModuleFromIrBlob(name, name + ".slang-module", ir));
+    }
+
+    /**
+     * Records that {@code type} implements {@code interfaceType}, returning a component that —
+     * composited and linked with a program — makes the type's witness table available for dynamic
+     * dispatch (existentials read from a buffer). Get the {@link TypeReflection}s from a module's
+     * {@link ComponentType#layout(long) layout} via {@link ShaderReflection#findTypeByName(String)}.
+     *
+     * @param conformanceId the dispatch id to pin, or {@code -1} to auto-assign (registration order)
+     */
+    public TypeConformance createTypeConformance(
+            TypeReflection type, TypeReflection interfaceType, long conformanceId) {
+        checkThread();
+        return new TypeConformance(
+                this, session.createTypeConformance(type.segment(), interfaceType.segment(), conformanceId));
     }
 
     /**
