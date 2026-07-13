@@ -61,9 +61,12 @@ jobs:
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: >
-          gh release create "${GITHUB_REF_NAME}"
-          --title "${GITHUB_REF_NAME}"
-          --generate-notes
-          slang/build/libs/*.jar
-          natives/build/libs/slang-java-natives-*-{linux,macos,windows}-*.jar
+        run: |
+          # Idempotent: drop a prior release for this tag (e.g. a re-tagged release) but keep the
+          # tag itself, then create fresh.
+          gh release delete "${GITHUB_REF_NAME}" --yes || true
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes \
+            slang/build/libs/*.jar \
+            natives/build/libs/slang-java-natives-*-{linux,macos,windows}-*.jar
