@@ -1,12 +1,12 @@
 name: Release
 
-# Push a tag like v0.0.1 to release. This uploads both io.github.refux:slang-java and
-# io.github.refux:slang-java-natives (one classifier artifact per platform) to the Maven Central
-# Portal as a *pending deployment* and creates the matching GitHub Release.
+# Push a tag like v0.0.1 to release. This publishes both io.github.refux:slang-java and
+# io.github.refux:slang-java-natives (one classifier artifact per platform) to Maven Central
+# (Central Portal, auto-released — no manual step) and creates the matching GitHub Release.
 #
-# MANUAL GATE: the deployment is NOT auto-released — review it at https://central.sonatype.com
-# (Deployments) and click Publish (or Drop). Once a release is trusted, switch the publish step
-# below to `publishAndReleaseToMavenCentral` to auto-release future tags.
+# To go back to a manual review gate for a risky release, temporarily change the publish step
+# below to `publishToMavenCentral`, which uploads a *pending* deployment to review at
+# https://central.sonatype.com (Deployments) and Publish/Drop by hand.
 #
 # The tag must match `version` in gradle.properties (tag v0.0.1 → version=0.0.1).
 #
@@ -47,11 +47,10 @@ jobs:
       - name: Run tests
         run: ./gradlew :slang:test "-PslangNativesDir=natives/build/payload/linux-x86_64/lib" --console=plain
 
-      # Uploads io.github.refux:slang-java and io.github.refux:slang-java-natives (all
-      # per-platform classifier jars) to the Central Portal as a pending deployment. Manually
-      # review and Publish it in the Portal UI (see the header note).
-      - name: Upload to Maven Central (pending deployment — manual publish)
-        run: ./gradlew publishToMavenCentral --no-configuration-cache --stacktrace
+      # Publishes io.github.refux:slang-java and io.github.refux:slang-java-natives (all
+      # per-platform classifier jars) to Maven Central and auto-releases them.
+      - name: Publish to Maven Central (auto-released)
+        run: ./gradlew publishAndReleaseToMavenCentral --no-configuration-cache --stacktrace
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
