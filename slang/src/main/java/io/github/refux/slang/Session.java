@@ -66,6 +66,22 @@ public final class Session extends NativeObject {
     }
 
     /**
+     * The 16-byte RTTI header identifying {@code type}'s conformance to {@code interfaceType}, to be
+     * written at the start of that value's element in a {@code StructuredBuffer<Interface>} for dynamic
+     * dispatch (the concrete payload follows it; the sequential dispatch id from
+     * {@link #createTypeConformance} occupies bytes 8-11). Register the conformance first so the id is
+     * assigned.
+     *
+     * @param type the concrete type
+     * @param interfaceType the interface it conforms to
+     * @return the 16 header bytes
+     */
+    public byte[] getDynamicObjectRTTIBytes(TypeReflection type, TypeReflection interfaceType) {
+        checkThread();
+        return session.getDynamicObjectRTTIBytes(type.segment(), interfaceType.segment());
+    }
+
+    /**
      * Combines modules and entry points into one unit of shader code; the order determines the
      * parameter layout order. The result is typically {@link ComponentType#link() linked} next.
      */

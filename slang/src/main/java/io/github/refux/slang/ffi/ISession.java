@@ -3,8 +3,10 @@ package io.github.refux.slang.ffi;
 import static java.lang.foreign.ValueLayout.ADDRESS;
 
 import io.github.refux.slang.SlangCompileException;
+import io.github.refux.slang.SlangException;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
+import java.lang.foreign.ValueLayout;
 import java.util.function.Consumer;
 
 /**
@@ -126,4 +128,31 @@ public final class ISession extends IUnknown {
             return new ITypeConformance(out.get(ADDRESS, 0));
         }
     }
+
+    /**
+     * The 16-byte RTTI header identifying {@code type}'s conformance to {@code interfaceType} for
+     * dynamic dispatch, to be written at the start of that value's element in a
+     * {@code StructuredBuffer<Interface>} (the concrete payload follows it). Slang's layout is: bytes
+     * 0-7 an RTTI marker (1 = valid type, 0 = null), bytes 8-11 the sequential dispatch id assigned by
+     * {@link #createTypeConformance}, bytes 12-15 unused. Register the conformance first so the id is
+     * assigned. Wraps {@code ISession::getDynamicObjectRTTIBytes}.
+     *
+     * @param type the concrete type ({@code slang::TypeReflection*})
+     * @param interfaceType the interface it conforms to ({@code slang::TypeReflection*})
+     * @return the 16 header bytes
+     */
+    public byte[] getDynamicObjectRTTIBytes(MemorySegment type, MemorySegment interfaceType) {
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment out = arena.allocate(RTTI_HEADER_BYTES);
+            int result = io.github.refux.slang.ffi.gen.ISession.getDynamicObjectRTTIBytes(
+                    segment(), type, interfaceType, out, RTTI_HEADER_BYTES);
+            if (!SlangNative.succeeded(result)) {
+                throw new SlangException("ISession::getDynamicObjectRTTIBytes failed", result);
+            }
+            return out.toArray(ValueLayout.JAVA_BYTE);
+        }
+    }
+
+    /** The dynamic-object RTTI header is a fixed 16 bytes (Slang: 8-byte type marker, 4-byte id, 4 unused). */
+    private static final int RTTI_HEADER_BYTES = 16;
 }
