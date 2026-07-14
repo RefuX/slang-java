@@ -7,16 +7,16 @@
 Java bindings for the [Slang](https://github.com/shader-slang/slang) shading-language compiler.
 Compile Slang source to SPIR-V, DXIL, HLSL, GLSL, WGSL, or Metal from the JVM, inspect the
 result with Slang's full reflection API, and resolve `import`s through your own code — pack
-files, classpath resources, in-memory maps. Pure Java on the FFM API (`java.lang.foreign`):
+files, classpath resources, in-memory maps. Java on the FFM API (`java.lang.foreign`):
 no JNI, no native glue of its own — it binds the official Khronos-signed Slang binaries
 directly. Windows, macOS, and Linux, on x86_64 and aarch64. Requires JDK 25+.
 
 ## Coordinates
 
-| Artifact | Purpose |
-|---|---|
-| `io.github.refux:slang-java:0.0.1` | The library: compiler API, reflection, Java file systems |
-| `io.github.refux:slang-java-natives:0.0.1:<os>-<arch>` | The official Slang binaries, as one classifier per platform: `windows`, `linux`, or `macos` × `x86_64` or `aarch64` |
+| Artifact                                               | Purpose |
+|--------------------------------------------------------|---|
+| `io.github.refux:slang-java:0.0.3`                     | The library: compiler API, reflection, Java file systems |
+| `io.github.refux:slang-java-natives:0.0.3:<os>-<arch>` | The official Slang binaries, as one classifier per platform: `windows`, `linux`, or `macos` × `x86_64` or `aarch64` |
 
 ## Getting started
 
@@ -34,8 +34,8 @@ val slangNatives = "${
 }-${if (System.getProperty("os.arch") in listOf("aarch64", "arm64")) "aarch64" else "x86_64"}"
 
 dependencies {
-    implementation("io.github.refux:slang-java:0.0.1")
-    runtimeOnly("io.github.refux:slang-java-natives:0.0.1:$slangNatives")
+    implementation("io.github.refux:slang-java:0.0.3")
+    runtimeOnly("io.github.refux:slang-java-natives:0.0.3:$slangNatives")
 }
 
 tasks.withType<JavaExec> {
@@ -48,10 +48,10 @@ classpath together and the loader picks the host's at runtime (LWJGL-style):
 
 ```kotlin
 dependencies {
-    implementation("io.github.refux:slang-java:0.0.1")
-    runtimeOnly("io.github.refux:slang-java-natives:0.0.1:macos-aarch64")
-    runtimeOnly("io.github.refux:slang-java-natives:0.0.1:windows-x86_64")
-    runtimeOnly("io.github.refux:slang-java-natives:0.0.1:linux-x86_64")
+    implementation("io.github.refux:slang-java:0.0.3")
+    runtimeOnly("io.github.refux:slang-java-natives:0.0.3:macos-aarch64")
+    runtimeOnly("io.github.refux:slang-java-natives:0.0.3:windows-x86_64")
+    runtimeOnly("io.github.refux:slang-java-natives:0.0.3:linux-x86_64")
 }
 ```
 
