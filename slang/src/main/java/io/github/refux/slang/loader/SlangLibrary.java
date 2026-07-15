@@ -49,10 +49,12 @@ public final class SlangLibrary {
 
     private final SymbolLookup lookup;
     private final String location;
+    private final Path directory;
 
-    private SlangLibrary(SymbolLookup lookup, String location) {
+    private SlangLibrary(SymbolLookup lookup, String location, Path directory) {
         this.lookup = lookup;
         this.location = location;
+        this.directory = directory;
     }
 
     /** Returns the process-wide instance, loading the native library on first use. */
@@ -77,6 +79,23 @@ public final class SlangLibrary {
         return location;
     }
 
+    /**
+     * The directory the library set was loaded from, or empty when it came from the platform's
+     * search path (resolution case 4) and so has no directory this binding picked.
+     *
+     * <p>Slang loads its companion libraries lazily and by bare name — notably
+     * {@code slang-glslang}, which backs the glslang, spirv-dis and spirv-opt downstream
+     * compilers. That bare name resolves against the platform's search order, which on Windows
+     * covers the executable's directory, the system directories, the working directory and PATH,
+     * but never {@code slang-compiler.dll}'s own directory; Windows has no equivalent of the
+     * {@code RPATH=$ORIGIN} that makes the macOS and Linux payloads self-contained. Callers hand
+     * this to {@code IGlobalSession::setDownstreamCompilerPath} so the companions resolve out of
+     * the payload rather than out of whatever Slang the host happens to have installed.
+     */
+    public Optional<Path> directory() {
+        return Optional.ofNullable(directory);
+    }
+
     private static SlangLibrary load() {
         String dir = System.getProperty(PROPERTY_LIBRARY_PATH);
         if (dir == null || dir.isBlank()) {
@@ -84,20 +103,22 @@ public final class SlangLibrary {
         }
         if (dir != null && !dir.isBlank()) {
             Path file = resolveInDirectory(Path.of(dir));
-            return new SlangLibrary(SymbolLookup.libraryLookup(file, Arena.global()), file.toString());
+            return new SlangLibrary(
+                    SymbolLookup.libraryLookup(file, Arena.global()), file.toString(), file.getParent());
         }
         // Natives artifact on the class path (slang-java-natives-<os>-<arch>): extract its
         // payload to a per-version cache and load from there.
         Path extracted = extractClasspathNatives();
         if (extracted != null) {
             Path file = resolveInDirectory(extracted);
-            return new SlangLibrary(SymbolLookup.libraryLookup(file, Arena.global()), file.toString());
+            return new SlangLibrary(
+                    SymbolLookup.libraryLookup(file, Arena.global()), file.toString(), file.getParent());
         }
         // Fall back to the platform's default search path (PATH / LD_LIBRARY_PATH / DYLD_*).
         for (String name : new String[] {"slang-compiler", "slang"}) {
             try {
                 String mapped = System.mapLibraryName(name);
-                return new SlangLibrary(SymbolLookup.libraryLookup(mapped, Arena.global()), "system:" + mapped);
+                return new SlangLibrary(SymbolLookup.libraryLookup(mapped, Arena.global()), "system:" + mapped, null);
             } catch (IllegalArgumentException notFound) {
                 // Try the next candidate name.
             }

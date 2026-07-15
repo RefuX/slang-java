@@ -139,5 +139,9 @@ tasks.test {
     testLogging {
         showStandardStreams = true
         events("passed", "failed", "skipped")
+        // Slang reports compile failures as the exception *message* (the diagnostic text). Without
+        // FULL, a CI failure prints only "SlangCompileException at FooTest.java:42", which is not
+        // enough to tell a bad shader from a native library that failed to load.
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
     }
 }
