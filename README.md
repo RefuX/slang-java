@@ -15,8 +15,8 @@ directly. Windows, macOS, and Linux, on x86_64 and aarch64. Requires JDK 25+.
 
 | Artifact                                               | Purpose |
 |--------------------------------------------------------|---|
-| `io.github.refux:slang-java:0.0.5`                     | The library: compiler API, reflection, Java file systems |
-| `io.github.refux:slang-java-natives:0.0.5:<os>-<arch>` | The official Slang binaries, as one classifier per platform: `windows`, `linux`, or `macos` × `x86_64` or `aarch64` |
+| `io.github.refux:slang-java:0.0.6`                     | The library: compiler API, reflection, Java file systems |
+| `io.github.refux:slang-java-natives:0.0.6:<os>-<arch>` | The official Slang binaries, as one classifier per platform: `windows`, `linux`, or `macos` × `x86_64` or `aarch64` |
 
 ## Getting started
 
@@ -34,8 +34,8 @@ val slangNatives = "${
 }-${if (System.getProperty("os.arch") in listOf("aarch64", "arm64")) "aarch64" else "x86_64"}"
 
 dependencies {
-    implementation("io.github.refux:slang-java:0.0.5")
-    runtimeOnly("io.github.refux:slang-java-natives:0.0.5:$slangNatives")
+    implementation("io.github.refux:slang-java:0.0.6")
+    runtimeOnly("io.github.refux:slang-java-natives:0.0.6:$slangNatives")
 }
 
 tasks.withType<JavaExec> {
@@ -48,10 +48,10 @@ classpath together and the loader picks the host's at runtime (LWJGL-style):
 
 ```kotlin
 dependencies {
-    implementation("io.github.refux:slang-java:0.0.5")
-    runtimeOnly("io.github.refux:slang-java-natives:0.0.5:macos-aarch64")
-    runtimeOnly("io.github.refux:slang-java-natives:0.0.5:windows-x86_64")
-    runtimeOnly("io.github.refux:slang-java-natives:0.0.5:linux-x86_64")
+    implementation("io.github.refux:slang-java:0.0.6")
+    runtimeOnly("io.github.refux:slang-java-natives:0.0.6:macos-aarch64")
+    runtimeOnly("io.github.refux:slang-java-natives:0.0.6:windows-x86_64")
+    runtimeOnly("io.github.refux:slang-java-natives:0.0.6:linux-x86_64")
 }
 ```
 
