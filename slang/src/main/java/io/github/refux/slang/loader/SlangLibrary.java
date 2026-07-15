@@ -22,7 +22,10 @@ import java.util.Optional;
  *       library set (an official release {@code lib/} payload, or a local Slang build's
  *       {@code build/<config>/lib/} directory).</li>
  *   <li>Environment variable {@value #ENV_LIBRARY_PATH} — same meaning.</li>
- *   <li><i>(M6, not yet implemented)</i> natives jar on the class path, extracted to a cache.</li>
+ *   <li>The {@code slang-java-natives-<os>-<arch>} jar on the class path, extracted to a
+ *       per-version cache — see {@link #extractClasspathNatives()}. This precedes the system
+ *       search path deliberately: a build that ships the natives artifact pins its Slang, and
+ *       must not silently pick up whatever the host happens to have installed.</li>
  *   <li>The platform's default library search path, trying the current library name
  *       {@code slang-compiler} first and the legacy name {@code slang} second.</li>
  * </ol>

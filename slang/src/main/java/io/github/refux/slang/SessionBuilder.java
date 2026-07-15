@@ -131,7 +131,7 @@ public final class SessionBuilder {
                 SessionDesc.setFileSystem(sessionDesc, nativeFileSystem.segment());
             }
             try {
-                return new Session(global.ffi().createSession(sessionDesc), onDiagnostics);
+                return new Session(global, global.ffi().createSession(sessionDesc), onDiagnostics);
             } finally {
                 if (nativeFileSystem != null) {
                     // The session add-refed it during creation; drop the creation reference so

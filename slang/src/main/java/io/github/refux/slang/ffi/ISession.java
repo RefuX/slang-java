@@ -2,6 +2,7 @@ package io.github.refux.slang.ffi;
 
 import static java.lang.foreign.ValueLayout.ADDRESS;
 
+import io.github.refux.slang.ModuleInfo;
 import io.github.refux.slang.SlangCompileException;
 import io.github.refux.slang.SlangException;
 import java.lang.foreign.Arena;
@@ -104,6 +105,42 @@ public final class ISession extends IUnknown {
                         diagnostics != null ? diagnostics : "module IR load failed", SlangNative.SLANG_FAIL);
             }
             return new IModule(module);
+        }
+    }
+
+    /**
+     * Reads a serialized module's name and versions without loading it, wrapping
+     * {@code slang_loadModuleInfoFromIRBlob}.
+     *
+     * <p>This is the only safe way to ask whether {@link #loadModuleFromIrBlob} would succeed:
+     * Slang aborts the process (Windows {@code STATUS_STACK_BUFFER_OVERRUN}, POSIX {@code SIGABRT})
+     * when handed IR whose module version it does not read, so the question cannot be answered by
+     * trying the load and catching a failure — no Java runs on that path. This query is safe on
+     * exactly that IR.
+     *
+     * @param ir the serialized module bytes
+     * @return the module's declared version, writing compiler, and name
+     * @throws SlangException when the bytes are not a readable serialized module
+     */
+    public ModuleInfo loadModuleInfoFromIrBlob(byte[] ir) {
+        if (ir.length == 0) {
+            throw new SlangException("not a serialized module: empty blob", SlangNative.SLANG_FAIL);
+        }
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment irData = arena.allocate(ir.length);
+            MemorySegment.copy(ir, 0, irData, ValueLayout.JAVA_BYTE, 0, ir.length);
+            MemorySegment outVersion = arena.allocate(ValueLayout.JAVA_LONG);
+            MemorySegment outCompilerVersion = arena.allocate(ADDRESS);
+            MemorySegment outName = arena.allocate(ADDRESS);
+            int result = io.github.refux.slang.ffi.gen.SlangAPI.slang_loadModuleInfoFromIRBlob(
+                    segment(), irData, ir.length, outVersion, outCompilerVersion, outName);
+            if (!SlangNative.succeeded(result)) {
+                throw new SlangException("ISession::loadModuleInfoFromIRBlob failed", result);
+            }
+            return new ModuleInfo(
+                    outVersion.get(ValueLayout.JAVA_LONG, 0),
+                    SlangNative.readUtf8(outCompilerVersion.get(ADDRESS, 0)),
+                    SlangNative.readUtf8(outName.get(ADDRESS, 0)));
         }
     }
 
