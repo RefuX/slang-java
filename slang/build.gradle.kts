@@ -92,6 +92,35 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
+// Which Slang a given jar binds, answerable without resolving or running anything:
+//
+//     unzip -p slang-java.jar META-INF/MANIFEST.MF
+//
+// Read from api/slang-api.json, the artifact that fact actually belongs to: it is the model the
+// committed bindings were generated from, and it moves only when they are regenerated.
+// Deliberately NOT natives/build.gradle.kts's slangVersion, which pins the binaries we ship —
+// those are allowed to run ahead, because PINNED_SLANG_VERSION is a floor ("newer libraries are
+// expected to work") rather than a lockstep. Reporting the shipped-natives version here would
+// assert a coupling the loader does not require, and would be plainly wrong for a consumer who
+// supplies their own newer Slang build via SLANG_JAVA_LIBRARY_PATH.
+val boundSlangVersion: Provider<String> =
+    providers.fileContents(rootProject.layout.projectDirectory.file("api/slang-api.json"))
+        .asText
+        .map { json ->
+            Regex("\"slangVersion\": \"([^\"]+)\"").find(json)?.groupValues?.get(1)
+                ?: error("api/slang-api.json: no slangVersion field to read")
+        }
+
+tasks.jar {
+    manifest {
+        attributes(
+            "Implementation-Title" to "slang-java",
+            "Implementation-Version" to project.version.toString(),
+            "Slang-Version" to boundSlangVersion.get(),
+        )
+    }
+}
+
 // Published javadoc focuses on the idiomatic API (io.github.refux.slang) and the loader's
 // configuration surface. The generated ffi.gen / gen layers and the low-level ffi wrappers are
 // documented escape hatches (see DESIGN.md), not semver-stable, so they are excluded to keep the
