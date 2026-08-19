@@ -46,7 +46,7 @@ public final class GlobalSession extends NativeObject {
         return ffi().findProfile(name);
     }
 
-    /** The Slang build tag of the loaded native library, e.g. {@code "2026.13"}. */
+    /** The Slang build tag of the loaded native library, e.g. {@code "2026.14.1"}. */
     public String buildTagString() {
         return ffi().getBuildTagString();
     }
