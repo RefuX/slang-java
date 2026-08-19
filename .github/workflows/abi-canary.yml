@@ -4,7 +4,8 @@ name: ABI drift canary
 # ABI lock (api/slang-abi.lock). A non-append change (a reordered/removed vtable method, a
 # renumbered enum, a changed struct offset, a dropped export) fails the run — that's the alarm,
 # and GitHub emails the repo owner on a failed scheduled workflow. Benign additions (new methods
-# / enums / functions) are reported in the run summary as "regenerate when convenient".
+# / enums / functions) are reported in the run summary as "regenerate when convenient", as are
+# the derived count sentinels (`CountOf`, `SLANG_STAGE_COUNT`, …) that any legal append shifts.
 on:
   schedule:
     - cron: "0 6 * * 1" # Mondays 06:00 UTC
@@ -27,7 +28,7 @@ jobs:
       - name: Install clang / libclang
         run: sudo apt-get update && sudo apt-get install -y clang-18 libclang-18-dev
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -57,7 +58,12 @@ jobs:
             --verify --skip-cross-triple \
             --primary-triple x86_64-unknown-linux-gnu
 
-      # Report benign additions (never fails).
+      # Report what changed (never fails). Runs on failure too, and that is the point: the
+      # extractor writes the model before it enforces the lock, so when the alarm does go off
+      # this step is what says which facts moved.
+      # continue-on-error rather than `|| true`: a reporter that breaks should be visible in the
+      # run rather than silently printing nothing, but it must never be what turns the canary red.
       - name: Report API additions
         if: always()
-        run: python bindgen/extract/diff_model.py api/slang-api.json /tmp/upstream-model.json || true
+        continue-on-error: true
+        run: python bindgen/extract/diff_model.py api/slang-api.json /tmp/upstream-model.json

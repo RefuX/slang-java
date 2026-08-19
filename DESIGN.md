@@ -452,6 +452,17 @@ offsets of every previously published binding. Regeneration diffs against it and
 non-append change** — mechanically enforcing on our side the same append-only contract the Slang
 repo promises on theirs.
 
+Two kinds of locked fact are monotonic rather than exact, because an append moves them by
+construction: struct sizes (`structureSize`-versioned growth) and **derived count sentinels**
+(`CompilerOptionName::CountOf`, `SLANG_STAGE_COUNT`, …), which upstream requires to stay one past
+the last enumerator. They may grow; going backwards, vanishing, or being renamed still fails.
+Qualifying as a sentinel takes all three of: no explicit initializer, a value exactly one past the
+enum's highest, and a count-like name — each alone over-matches. `SlangImageFormat` is an X-macro
+enum whose 43 enumerators are *all* implicit and `SlangScope`'s four values are too, so keying on
+"implicit" alone would quietly demote 47 real ABI facts; conversely `CountOfParsableOptions` and
+`SLANG_PARAMETER_CATEGORY_COUNT_V1` are count-named but explicitly valued, and stay locked.
+`bindgen/extract/test_abi_lock.py` pins all of this down (gated in CI, no libclang required).
+
 **Stage B — codegen** (`bindgen/src/main/java`, plain Java, no dependencies beyond the JDK; runs
 as a Gradle task reading only the JSON). Emits the whole `io.github.refux.slang.ffi` package:
 `SlangNative` (C downcalls), interface classes with slot dispatch, struct layout classes with
@@ -728,7 +739,12 @@ S ≈ a day, M ≈ 2–4 days, L ≈ 1–2 weeks of focused work.
   upstream headers, runs the extractor in `--verify` mode (enforces the committed lock without
   rewriting it, single Linux triple) so any non-append change fails the run and notifies the
   owner, and `diff_model.py` reports benign additions in the run summary. Both verified locally,
-  including that breaking drift exits non-zero. **M6 complete** bar the perf pass
+  including that breaking drift exits non-zero. Under `--verify` the extractor writes its JSON
+  model *before* enforcing the lock, so the report step still has something to diff on the run
+  where the alarm fires — that is the run where knowing what moved matters most. Regeneration
+  keeps writing both committed files only *after* enforcement passes, so a failed regen can never
+  leave `api/slang-api.json` holding an ABI the lock rejected for codegen to pick up.
+  **M6 complete** bar the perf pass
   (`Linker.Option.critical`, `StableValue`), which is optional.
 
 ### Suggested first PR stack

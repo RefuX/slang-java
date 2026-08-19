@@ -14,13 +14,15 @@ import os
 import sys
 
 
-def symbols(model):
+def symbols(model, sentinels=()):
     out = set()
     for i in model["interfaces"]:
         for m in i["methods"]:
             out.add(f"method {i['name']}::{m['name']} (slot {m['slot']})")
     for e in model["enums"]:
         for v in e["values"]:
+            if (e["name"], v["name"]) in sentinels:
+                continue  # a derived count, not an ABI value — reported separately below
             out.add(f"enum {e['name']}.{v['name']} = {v['value']}")
     for f in model["functions"]:
         out.add(f"function {f['name']}")
@@ -29,11 +31,36 @@ def symbols(model):
     return out
 
 
+def sentinel_moves(committed, fresh, sentinels):
+    """Derived count sentinels shift by construction whenever options are appended, so they are
+    neither an addition nor a removal — but the shift is still the clearest one-line summary of
+    how much was appended, so it is worth printing."""
+    def values(model):
+        return {(e["name"], v["name"]): v["value"]
+                for e in model["enums"] for v in e["values"]}
+
+    was, now, moves = values(committed), values(fresh), []
+    for key in sorted(sentinels):
+        if key in was and key in now and was[key] != now[key]:
+            moves.append(f"{key[0]}::{key[1]} {was[key]} -> {now[key]}")
+    return moves
+
+
 def main():
     committed = json.load(open(sys.argv[1]))
+    if not os.path.exists(sys.argv[2]):
+        # The extractor writes its model before enforcing the lock, so a missing file here means
+        # extraction itself never finished — say that plainly rather than raising a traceback the
+        # reader has to decode.
+        print(f"no model at {sys.argv[2]} — extraction failed before the diff; see the log above")
+        return
     fresh = json.load(open(sys.argv[2]))
-    added = sorted(symbols(fresh) - symbols(committed))
-    removed = sorted(symbols(committed) - symbols(fresh))
+    # The freshly extracted model names its own derived count sentinels, so this stays in step
+    # with extract_api.py's rule instead of re-deriving it here.
+    sentinels = {tuple(k) for k in fresh.get("countSentinels", [])}
+    added = sorted(symbols(fresh, sentinels) - symbols(committed, sentinels))
+    removed = sorted(symbols(committed, sentinels) - symbols(fresh, sentinels))
+    moves = sentinel_moves(committed, fresh, sentinels)
 
     lines = [f"Committed Slang {committed['slangVersion']} vs upstream {fresh['slangVersion']}:"]
     if not added and not removed:
@@ -41,9 +68,13 @@ def main():
     if added:
         lines.append(f"  {len(added)} additions (benign — regenerate the bindings when convenient):")
         lines += [f"    + {s}" for s in added]
+    if moves:
+        lines.append(f"  {len(moves)} derived count sentinel(s) moved — implied by those "
+                     f"appends, not drift:")
+        lines += [f"    = {m}" for m in moves]
     if removed:
-        # The append-only lock should already have failed the run before we get here; list these
-        # for completeness if --verify was somehow run without the lock.
+        # The append-only lock fails the run before this step; these lines are the diagnosis of
+        # what tripped it, which is the whole reason the model is written before enforcement.
         lines.append(f"  {len(removed)} removals/changes (BREAKING — should have tripped the lock):")
         lines += [f"    - {s}" for s in removed]
 

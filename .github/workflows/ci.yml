@@ -11,6 +11,19 @@ defaults:
     shell: bash
 
 jobs:
+  # The ABI lock's arithmetic decides whether the weekly canary cries wolf or stays silent through
+  # a real break, and only the scheduled canary ever exercises it — so gate it here, on PRs, where
+  # the edits actually land. Stubs out libclang, so no toolchain is needed and it runs in seconds.
+  abi-lock:
+    name: ABI lock semantics
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: python bindgen/extract/test_abi_lock.py
+
   smoke:
     name: smoke (${{ matrix.platform }})
     strategy:
