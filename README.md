@@ -71,6 +71,7 @@ Then compile a shader and reflect on it:
 
 ```java
 import io.github.refux.slang.*;
+import io.github.refux.slang.Module; // disambiguates from java.lang.Module
 
 try (GlobalSession global = Slang.createGlobalSession();
      Session session = global.newSession()

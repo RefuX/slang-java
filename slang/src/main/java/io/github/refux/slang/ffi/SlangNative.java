@@ -11,7 +11,7 @@ import java.lang.foreign.MemorySegment;
 public final class SlangNative {
     private SlangNative() {}
 
-    /** Returns the build tag of the loaded Slang library, e.g. {@code "2026.13"}. */
+    /** Returns the build tag of the loaded Slang library, e.g. {@code "2026.14.1"}. */
     public static String spGetBuildTagString() {
         return readUtf8(SlangAPI.spGetBuildTagString());
     }

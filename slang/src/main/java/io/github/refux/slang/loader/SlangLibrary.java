@@ -240,7 +240,7 @@ public final class SlangLibrary {
      * Picks the Slang compiler library file inside {@code dir}. Tries the exact platform names
      * first ({@code libslang-compiler.dylib}, {@code slang-compiler.dll}, …, then the legacy
      * {@code slang} names), and falls back to version-suffixed files such as
-     * {@code libslang-compiler.0.2026.13.dylib} — official archives may not preserve the
+     * {@code libslang-compiler.0.2026.14.1.dylib} — official archives may not preserve the
      * unversioned symlink. The prefix match is written so companion libraries
      * ({@code libslang-glslang}, {@code libslang-rt}, …) can never be picked up by mistake.
      */
