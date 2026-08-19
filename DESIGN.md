@@ -6,7 +6,7 @@
 | **Date** | 2026-07-13 |
 | **Scope** | Java bindings for the Slang shading-language compiler ([shader-slang/slang](https://github.com/shader-slang/slang)) |
 | **Java baseline** | JDK 25 LTS, FFM (java.lang.foreign) |
-| **Slang baseline** | v2026.13 release binaries (pinned, upgradable) |
+| **Slang baseline** | v2026.14.1 release binaries (pinned, upgradable) |
 | **Platforms** | Windows, macOS, Linux — x86_64 and aarch64 |
 
 This document was written against a structural scan of `include/slang.h` at tag-adjacent
