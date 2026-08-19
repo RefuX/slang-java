@@ -12,6 +12,8 @@ treats derived count sentinels monotonically. The risk that buys is over-relaxat
 what follows pins down what must STILL be locked byte-exact.
 """
 
+import contextlib
+import io
 import sys
 import tempfile
 import types
@@ -143,6 +145,17 @@ class CountSentinels(unittest.TestCase):
         odd = {"enums": [enum("E", [("A", 0), ("B", 9), ("E_COUNT", 3, "derived")])]}
         self.assertEqual(extract_api.count_sentinels(odd), {})
 
+    def test_an_implicitly_valued_append_does_not_declassify_the_count(self):
+        """Only CompilerOptionName is under a written every-entry-has-a-value rule; elsewhere
+        upstream appends without an initializer, and the ceiling must still be measured against
+        those. Getting this wrong re-raises the very false positive this code exists to stop."""
+        appended = {"enums": [enum("SlangCompileTarget", [
+            ("SLANG_TARGET_UNKNOWN", 0), ("SLANG_TARGET_WGSL", 36),
+            ("SLANG_TARGET_WGSL_SPIRV", 37, "derived"),      # appended, no initializer
+            ("SLANG_TARGET_COUNT_OF", 38, "derived")])]}
+        self.assertEqual(extract_api.count_sentinels(appended),
+                         {("SlangCompileTarget", "SLANG_TARGET_COUNT_OF"): 38})
+
     def test_explicit_initializer_disqualifies(self):
         pinned = {"enums": [enum("E", [("A", 0), ("E_COUNT", 1)])]}
         self.assertEqual(extract_api.count_sentinels(pinned), {})
@@ -170,11 +183,32 @@ class EnforceLock(unittest.TestCase):
             self.enforce(old, new, {("CompilerOptionName", "CountOf"): 158}), "verified")
 
     def test_sentinel_may_not_shrink(self):
-        """Going backwards means enumerators were removed -- a real break."""
+        """Going backwards means enumerators were removed -- a real break.
+
+        Covers the guard, not a live path: against a lock this script generated, whichever
+        enumerator sets the ceiling is locked too, so it fails first and count_sentinels() has
+        already declassified the count. The sentinel map here is hand-built to reach the branch."""
         with self.assertRaises(SystemExit):
             self.enforce(["enum CompilerOptionName CountOf 158"],
                          ["enum CompilerOptionName CountOf 156"],
                          {("CompilerOptionName", "CountOf"): 156})
+
+    def test_relaxations_are_logged_even_when_the_run_fails(self):
+        """A run that dies for an unrelated reason must still say the sentinel moved."""
+        with self.assertRaises(SystemExit):
+            with contextlib.redirect_stdout(io.StringIO()) as out:
+                self.enforce(["enum CompilerOptionName CountOf 156",
+                              "iface ISession 5 loadModule"],
+                             ["enum CompilerOptionName CountOf 158",
+                              "iface ISession 6 loadModule"],
+                             {("CompilerOptionName", "CountOf"): 158})
+        self.assertIn("CountOf 156 -> 158", out.getvalue())
+
+    def test_a_sentinel_frozen_at_its_locked_value_is_not_drift(self):
+        """Upstream pinning `CountOf = 158` explicitly makes it exact-matched, not broken."""
+        self.assertEqual(
+            self.enforce(["enum CompilerOptionName CountOf 158"],
+                         ["enum CompilerOptionName CountOf 158"], {}), "verified")
 
     def test_sentinel_may_not_vanish(self):
         """Renamed or deleted: not in the new sentinel map, so it falls back to exact match."""

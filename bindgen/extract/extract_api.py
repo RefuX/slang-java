@@ -539,12 +539,18 @@ def count_sentinels(model):
     value legally moves when upstream appends. See the SENTINEL_NAME comment for the rules."""
     out = {}
     for e in model["enums"]:
-        others = [v["value"] for v in e["values"] if not v.get("derived")]
-        if not others:
+        if all(v.get("derived") for v in e["values"]):
             continue  # an all-implicit enum (X-macro): no stable baseline, so lock every value
-        ceiling = max(others) + 1
-        for v in e["values"]:
-            if v.get("derived") and v["value"] == ceiling and SENTINEL_NAME.match(v["name"]):
+        for i, v in enumerate(e["values"]):
+            if not v.get("derived") or not SENTINEL_NAME.match(v["name"]):
+                continue
+            # Measure against every OTHER enumerator, not just the explicitly valued ones. Only
+            # CompilerOptionName is under a written rule that every entry carries a value
+            # (slang.h's "ABI STABILITY POLICY"); elsewhere upstream appends implicitly whenever
+            # it likes, and counting only explicit values would let one unvalued neighbour push
+            # the count past the ceiling, declassify it, and re-raise this very false alarm.
+            rest = [w["value"] for j, w in enumerate(e["values"]) if j != i]
+            if rest and v["value"] == max(rest) + 1:
                 out[(e["name"], v["name"])] = v["value"]
     return out
 
@@ -570,8 +576,9 @@ def enforce_lock(lock_path, new_lines, sentinels=None):
     """Append-only ABI enforcement: every previously locked fact must still hold. Struct sizes may
     grow (structureSize-versioned appends) and derived count sentinels may grow (they sit one past
     the last enumerator, so any legal append moves them); everything else must be byte-identical.
-    A sentinel that goes backwards, vanishes, is renamed, or gains an explicit initializer still
-    fails -- each of those is a real removal or renumbering rather than an append."""
+    A sentinel that goes backwards, vanishes, or is renamed still fails. One that gains an explicit
+    initializer simply reverts to byte-exact matching, so it fails only if its value moved too --
+    upstream freezing a sentinel at the value we already recorded is not an ABI change."""
     if not lock_path.exists():
         return "created"
     sentinels = sentinels or {}
@@ -590,18 +597,24 @@ def enforce_lock(lock_path, new_lines, sentinels=None):
         elif parts[0] == "enum" and (parts[1], parts[2]) in sentinels:
             was, now = int(parts[3]), sentinels[(parts[1], parts[2])]
             if now < was:
+                # Defence in depth, not a live path: for a lock this script generated, whichever
+                # enumerator sets the ceiling is itself locked, so it reports first and the count
+                # is declassified before we get here. Reachable only for a hand-edited lock or one
+                # rebased with --reset-lock.
                 problems.append(f"count sentinel went backwards (enumerators removed?): "
                                 f"{line} -> {now}")
             elif now != was:
                 relaxed.append(f"{parts[1]}::{parts[2]} {was} -> {now}")
         elif line not in new_set:
             problems.append(f"locked ABI fact changed or disappeared: {line}")
+    # Log relaxations before any die(): on a run that fails for an unrelated reason, the sentinel
+    # movement is still half the story of what upstream did, and silence there is the same
+    # diagnostic gap that made this alarm unreadable in the first place.
+    for r in relaxed:
+        print(f"note: derived count sentinel moved, as an append implies: {r}")
     if problems:
         die("ABI lock violations (non-append change in slang.h?):\n  " +
             "\n  ".join(problems[:20]))
-    # Say out loud what was waved through: a relaxation should never be invisible in the log.
-    for r in relaxed:
-        print(f"note: derived count sentinel moved, as an append implies: {r}")
     return "verified"
 
 
@@ -648,11 +661,18 @@ def main():
         print("validating layout across target triples")
         validate_across_triples(index, args.slang_include, res, sdk, layout_snapshot(tu))
 
-    # Write the model before enforcing. enforce_lock() exits non-zero on drift, and the canary's
-    # follow-up step diffs this file to report WHAT changed -- an alarm that swallowed its own
-    # evidence would leave that step with nothing but a missing file.
-    args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(model, indent=1, sort_keys=True, ensure_ascii=True) + "\n")
+    def write_model():
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(json.dumps(model, indent=1, sort_keys=True, ensure_ascii=True) + "\n")
+
+    # The canary writes its model BEFORE enforcing, because enforce_lock() exits non-zero on drift
+    # and the follow-up step diffs this file to report WHAT changed -- an alarm that swallowed its
+    # own evidence leaves that step with nothing but a missing file. Regeneration must NOT do this:
+    # there --out IS the committed api/slang-api.json, and overwriting it with a model that just
+    # failed enforcement would leave codegen (CLAUDE.md's step 2, a separate command) free to emit
+    # bindings from an ABI nobody accepted. --verify is exactly the canary, so gate on it.
+    if args.verify:
+        write_model()
 
     lines = lock_entries(model)
     if args.reset_lock:
@@ -661,12 +681,15 @@ def main():
     else:
         # raises on non-append (breaking) drift
         status = enforce_lock(args.lock, lines, count_sentinels(model))
-    # --verify (the canary) enforces the lock but never rewrites the committed one.
+    # --verify (the canary) enforces the lock but never rewrites the committed one. Regeneration
+    # rewrites both, and only now -- past enforce_lock(), so neither committed file can be left
+    # holding an ABI that failed the gate.
     if not args.verify:
         args.lock.parent.mkdir(parents=True, exist_ok=True)
         args.lock.write_text(
             "# slang-java ABI lock -- append-only; regenerated by extract_api.py\n"
             f"# slang {args.slang_version}\n" + "\n".join(lines) + "\n")
+        write_model()
 
     print(f"model: {len(model['interfaces'])} interfaces "
           f"({sum(len(i['methods']) for i in model['interfaces'])} methods), "

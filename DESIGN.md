@@ -739,9 +739,12 @@ S ≈ a day, M ≈ 2–4 days, L ≈ 1–2 weeks of focused work.
   upstream headers, runs the extractor in `--verify` mode (enforces the committed lock without
   rewriting it, single Linux triple) so any non-append change fails the run and notifies the
   owner, and `diff_model.py` reports benign additions in the run summary. Both verified locally,
-  including that breaking drift exits non-zero. The extractor writes its JSON model *before*
-  enforcing the lock, so the report step still has something to diff on the run where the alarm
-  fires — that is the run where knowing what moved matters most. **M6 complete** bar the perf pass
+  including that breaking drift exits non-zero. Under `--verify` the extractor writes its JSON
+  model *before* enforcing the lock, so the report step still has something to diff on the run
+  where the alarm fires — that is the run where knowing what moved matters most. Regeneration
+  keeps writing both committed files only *after* enforcement passes, so a failed regen can never
+  leave `api/slang-api.json` holding an ABI the lock rejected for codegen to pick up.
+  **M6 complete** bar the perf pass
   (`Linker.Option.critical`, `StableValue`), which is optional.
 
 ### Suggested first PR stack
