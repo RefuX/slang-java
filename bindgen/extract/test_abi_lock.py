@@ -270,25 +270,36 @@ class CommittedLock(unittest.TestCase):
         self.assertEqual(extract_api.enforce_lock(self.LOCK, sorted(self.lines)), "verified")
 
     def test_upstream_append_no_longer_trips_the_canary(self):
-        """Replay the drift that failed run 32002910570 against the committed lock."""
-        self.assertIn("enum CompilerOptionName CountOf 156", self.lines)
-        new = [l for l in self.lines if l != "enum CompilerOptionName CountOf 156"] + [
-            "enum CompilerOptionName CountOf 158",
-            "enum CompilerOptionName SeparateDebugInfoOutput 156",
-            "enum CompilerOptionName DebugInfoIncludeSource 157"]
+        """Replay the drift that failed run 32002910570, against whatever the lock pins today.
+
+        The sentinel's value is read from the lock rather than written here. An earlier version
+        hard-coded 156, and the 2026.14.1 bump moved it to 158 and failed this test -- a test
+        about a sentinel that legally moves, broken by that sentinel legally moving. Pinning a
+        value that changes every release recreates, in CI, the exact false alarm the code under
+        test exists to prevent."""
+        line = next(l for l in self.lines
+                    if l.startswith("enum CompilerOptionName CountOf "))
+        was = int(line.split()[3])
+        now = was + 2  # two options appended, as 2026.13 -> 2026.14.1 actually did
+        new = [l for l in self.lines if l != line] + [
+            f"enum CompilerOptionName CountOf {now}",
+            f"enum CompilerOptionName AppendedOptionA {was}",
+            f"enum CompilerOptionName AppendedOptionB {was + 1}"]
         self.assertEqual(
             extract_api.enforce_lock(self.LOCK, sorted(new),
-                                     {("CompilerOptionName", "CountOf"): 158}),
+                                     {("CompilerOptionName", "CountOf"): now}),
             "verified")
 
     def test_x_macro_enumerator_in_the_committed_lock_stays_exact(self):
+        """No sentinel map: the point is that renumbering an image format fails on its own
+        merits. Passing a hard-coded CountOf here would go stale on the next Slang bump and
+        then fail for the wrong reason -- a sentinel regression -- while still looking green."""
         victim = next(l for l in self.lines if l.startswith("enum SlangImageFormat "))
         name, value = victim.split()[2], int(victim.split()[3])
         new = [l for l in self.lines if l != victim] + [
             f"enum SlangImageFormat {name} {value + 1}"]
         with self.assertRaises(SystemExit):
-            extract_api.enforce_lock(self.LOCK, sorted(new),
-                                     {("CompilerOptionName", "CountOf"): 158})
+            extract_api.enforce_lock(self.LOCK, sorted(new), {})
 
 
 if __name__ == "__main__":
