@@ -57,15 +57,54 @@ jobs:
           ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_KEY }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_PASSWORD }}
 
+      # Which Slang a release bundles is the first thing anyone wants from these notes, and
+      # --generate-notes alone never says it: it lists merged PRs, and a version bump reads as
+      # one more line among them. Both versions are derived here rather than written by hand,
+      # so they cannot drift from what actually shipped.
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          slang=$(sed -n 's/^val slangVersion = "\(.*\)"$/\1/p' natives/build.gradle.kts)
+          floor=$(sed -n 's/.*PINNED_SLANG_VERSION = "\(.*\)".*/\1/p' \
+            slang/src/main/java/io/github/refux/slang/loader/SlangLibrary.java)
+          classifiers=$(ls natives/manifests/*.json | xargs -n1 basename | sed 's/\.json$//' \
+            | sort | sed 's/^/`/; s/$/`/' | paste -sd, - | sed 's/,/, /g')
+          [ -n "$slang" ] && [ -n "$floor" ] || { echo "::error::could not derive the Slang versions"; exit 1; }
+
+          # The two are equal after a full regeneration and legitimately differ after a
+          # natives-only bump, because PINNED_SLANG_VERSION is a floor rather than a lockstep.
+          # Saying which is which matters more when they diverge, so spell it out then.
+          if [ "$slang" = "$floor" ]; then
+            provenance="Bundles the official **Slang \`$slang\`** binaries, unmodified, and the bindings are generated against that same release."
+          else
+            provenance="Bundles the official **Slang \`$slang\`** binaries, unmodified. The bindings are generated against Slang \`$floor\` and run against these newer binaries, which Slang's append-only public ABI guarantees."
+          fi
+
+          notes=$(cat <<EOF
+          $provenance
+
+          | | |
+          |---|---|
+          | Slang binaries bundled | \`$slang\` |
+          | Bindings generated against | \`$floor\` |
+          | Natives classifiers | $classifiers |
+
+          \`SlangLibrary.PINNED_SLANG_VERSION\` is a **minimum**, not a pin: a newer Slang works, an
+          older one does not. Every jar records what it binds, without being run:
+
+          \`\`\`
+          unzip -p slang-java-${GITHUB_REF_NAME#v}.jar META-INF/MANIFEST.MF
+          \`\`\`
+          EOF
+          )
+
           # Idempotent: drop a prior release for this tag (e.g. a re-tagged release) but keep the
           # tag itself, then create fresh.
           gh release delete "${GITHUB_REF_NAME}" --yes || true
           gh release create "${GITHUB_REF_NAME}" \
             --title "${GITHUB_REF_NAME}" \
+            --notes "$notes" \
             --generate-notes \
             slang/build/libs/*.jar \
             natives/build/libs/slang-java-natives-*-{linux,macos,windows}-*.jar
