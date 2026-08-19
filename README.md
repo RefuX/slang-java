@@ -18,6 +18,18 @@ directly. Windows, macOS, and Linux, on x86_64 and aarch64. Requires JDK 25+.
 | `io.github.refux:slang-java:0.0.6`                     | The library: compiler API, reflection, Java file systems |
 | `io.github.refux:slang-java-natives:0.0.6:<os>-<arch>` | The official Slang binaries, as one classifier per platform: `windows`, `linux`, or `macos` × `x86_64` or `aarch64` |
 
+The library version tracks slang-java's own API, not Slang's. To see which Slang release a jar
+binds, read its manifest — no resolving, no running:
+
+```bash
+unzip -p slang-java-0.0.6.jar META-INF/MANIFEST.MF
+```
+
+`Slang-Version` there is a **floor**, not a lockstep: it names the release the bindings were
+generated against, and any newer Slang works, because Slang's public ABI is append-only. The same
+value is available at runtime as `SlangLibrary.PINNED_SLANG_VERSION`, alongside
+`GlobalSession.buildTagString()` for the library actually loaded.
+
 ## Getting started
 
 Add the library and the natives classifier for your machine — compute it from the host so you
