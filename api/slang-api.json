@@ -1,4 +1,50 @@
 {
+ "countSentinels": [
+  [
+   "CompilerOptionName",
+   "CountOf"
+  ],
+  [
+   "PathKind",
+   "CountOf"
+  ],
+  [
+   "SlangArchiveType",
+   "SLANG_ARCHIVE_TYPE_COUNT_OF"
+  ],
+  [
+   "SlangCompileTarget",
+   "SLANG_TARGET_COUNT_OF"
+  ],
+  [
+   "SlangDebugInfoFormat",
+   "SLANG_DEBUG_INFO_FORMAT_COUNT_OF"
+  ],
+  [
+   "SlangParameterCategory",
+   "SLANG_PARAMETER_CATEGORY_COUNT"
+  ],
+  [
+   "SlangPassThrough",
+   "SLANG_PASS_THROUGH_COUNT_OF"
+  ],
+  [
+   "SlangSourceLanguage",
+   "SLANG_SOURCE_LANGUAGE_COUNT_OF"
+  ],
+  [
+   "SlangStage",
+   "SLANG_STAGE_COUNT"
+  ],
+  [
+   "SlangTypeKind",
+   "SLANG_TYPE_KIND_COUNT"
+  ],
+  [
+   "SlangWriterChannel",
+   "SLANG_WRITER_CHANNEL_COUNT_OF"
+  ]
+ ],
  "enums": [
   {
    "name": "BindingType",
@@ -739,8 +785,17 @@
      "value": 155
     },
     {
-     "name": "CountOf",
+     "name": "SeparateDebugInfoOutput",
      "value": 156
+    },
+    {
+     "name": "DebugInfoIncludeSource",
+     "value": 157
+    },
+    {
+     "derived": true,
+     "name": "CountOf",
+     "value": 158
     }
    ]
   },
@@ -1093,6 +1148,7 @@
      "value": 3
     },
     {
+     "derived": true,
      "doc": "Get the path to the item on the *operating system* file system, if available.",
      "name": "CountOf",
      "value": 4
@@ -1127,6 +1183,7 @@
      "value": 4
     },
     {
+     "derived": true,
      "name": "SLANG_ARCHIVE_TYPE_COUNT_OF",
      "value": 5
     }
@@ -1444,6 +1501,7 @@
      "value": 36
     },
     {
+     "derived": true,
      "name": "SLANG_TARGET_COUNT_OF",
      "value": 37
     }
@@ -1546,6 +1604,7 @@
      "value": 5
     },
     {
+     "derived": true,
      "name": "SLANG_DEBUG_INFO_FORMAT_COUNT_OF",
      "value": 6
     }
@@ -1726,174 +1785,217 @@
    },
    "values": [
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_unknown",
      "value": 0
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_rgba32f",
      "value": 1
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_rgba16f",
      "value": 2
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_rg32f",
      "value": 3
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_rg16f",
      "value": 4
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_r11f_g11f_b10f",
      "value": 5
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_r32f",
      "value": 6
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_r16f",
      "value": 7
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_rgba16",
      "value": 8
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_rgb10_a2",
      "value": 9
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_rgba8",
      "value": 10
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_rg16",
      "value": 11
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_rg8",
      "value": 12
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_r16",
      "value": 13
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_r8",
      "value": 14
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_rgba16_snorm",
      "value": 15
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_rgba8_snorm",
      "value": 16
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_rg16_snorm",
      "value": 17
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_rg8_snorm",
      "value": 18
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_r16_snorm",
      "value": 19
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_r8_snorm",
      "value": 20
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_rgba32i",
      "value": 21
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_rgba16i",
      "value": 22
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_rgba8i",
      "value": 23
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_rg32i",
      "value": 24
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_rg16i",
      "value": 25
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_rg8i",
      "value": 26
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_r32i",
      "value": 27
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_r16i",
      "value": 28
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_r8i",
      "value": 29
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_rgba32ui",
      "value": 30
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_rgba16ui",
      "value": 31
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_rgb10_a2ui",
      "value": 32
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_rgba8ui",
      "value": 33
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_rg32ui",
      "value": 34
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_rg16ui",
      "value": 35
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_rg8ui",
      "value": 36
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_r32ui",
      "value": 37
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_r16ui",
      "value": 38
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_r8ui",
      "value": 39
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_r64ui",
      "value": 40
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_r64i",
      "value": 41
     },
     {
+     "derived": true,
      "name": "SLANG_IMAGE_FORMAT_bgra8",
      "value": 42
     }
@@ -2263,6 +2365,7 @@
      "value": 24
     },
     {
+     "derived": true,
      "name": "SLANG_PARAMETER_CATEGORY_COUNT",
      "value": 25
     },
@@ -2369,6 +2472,7 @@
      "value": 14
     },
     {
+     "derived": true,
      "name": "SLANG_PASS_THROUGH_COUNT_OF",
      "value": 15
     }
@@ -2663,18 +2767,22 @@
    },
    "values": [
     {
+     "derived": true,
      "name": "SLANG_SCOPE_NONE",
      "value": 0
     },
     {
+     "derived": true,
      "name": "SLANG_SCOPE_THREAD",
      "value": 1
     },
     {
+     "derived": true,
      "name": "SLANG_SCOPE_WAVE",
      "value": 2
     },
     {
+     "derived": true,
      "name": "SLANG_SCOPE_THREAD_GROUP",
      "value": 3
     }
@@ -2768,6 +2876,7 @@
      "value": 10
     },
     {
+     "derived": true,
      "name": "SLANG_SOURCE_LANGUAGE_COUNT_OF",
      "value": 11
     }
@@ -2848,6 +2957,7 @@
      "value": 16
     },
     {
+     "derived": true,
      "name": "SLANG_STAGE_COUNT",
      "value": 17
     },
@@ -2948,6 +3058,7 @@
      "value": 20
     },
     {
+     "derived": true,
      "name": "SLANG_TYPE_KIND_COUNT",
      "value": 21
     }
@@ -3000,6 +3111,7 @@
      "value": 2
     },
     {
+     "derived": true,
      "name": "SLANG_WRITER_CHANNEL_COUNT_OF",
      "value": 3
     }
@@ -6352,6 +6464,7 @@
    }
   },
   {
+   "doc": "DEPRECATED: use `slang::VariableReflection::getDefaultValueBlob` instead.",
    "group": "reflection",
    "name": "spReflectionVariable_GetDefaultValueFloat",
    "params": [
@@ -6375,6 +6488,7 @@
    }
   },
   {
+   "doc": "DEPRECATED: use `slang::VariableReflection::getDefaultValueBlob` instead.",
    "group": "reflection",
    "name": "spReflectionVariable_GetDefaultValueInt",
    "params": [
@@ -6488,6 +6602,7 @@
    }
   },
   {
+   "doc": "DEPRECATED: use `slang::VariableReflection::getDefaultValueBlob` and check for a null blob\ninstead.",
    "group": "reflection",
    "name": "spReflectionVariable_HasDefaultValue",
    "params": [
@@ -11596,7 +11711,7 @@
    "method": "hasDefaultValue"
   }
  ],
- "slangVersion": "2026.13",
+ "slangVersion": "2026.14.1",
  "structs": [
   {
    "align": 4,
