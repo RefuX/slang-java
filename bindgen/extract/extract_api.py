@@ -263,6 +263,7 @@ def build_model(tu, slang_version, primary_triple):
                                                    CK.LINKAGE_SPEC, CK.UNEXPOSED_DECL):
                 continue  # nested enums belong to the C++ wrapper classes (M4 concern)
             values = [{"name": v.spelling, "value": v.enum_value,
+                       **({"derived": True} if is_derived_enumerator(v) else {}),
                        **({"doc": doc_of(v)} if doc_of(v) else {})}
                       for v in cursor.get_children() if v.kind == CK.ENUM_CONSTANT_DECL]
             name = cursor.spelling
@@ -342,7 +343,7 @@ def build_model(tu, slang_version, primary_triple):
             "values": misc_constants}
 
     resolve_vtables(interfaces)
-    return {
+    model = {
         "slangVersion": slang_version,
         "generatedBy": "slang-bindgen extract_api.py",
         "primaryTriple": primary_triple,
@@ -353,6 +354,8 @@ def build_model(tu, slang_version, primary_triple):
         "functions": [functions[k] for k in sorted(functions)],
         "reflectionWrappers": sorted(wrappers, key=lambda w: (w["class"], w["method"])),
     }
+    model["countSentinels"] = sorted([e, v] for (e, v) in count_sentinels(model))
+    return model
 
 
 def extract_interface(cursor, name, bases, virtuals):
@@ -493,6 +496,59 @@ def validate_across_triples(index, include_dir, res_dir, sdk, primary_snap):
         print(f"  validated {triple}")
 
 
+# A terminal count sentinel (slang.h's `CountOf`, `SLANG_STAGE_COUNT`, ...) is not an ABI fact:
+# upstream documents it as deriving implicitly from the preceding enumerator, so it necessarily
+# moves every time an option is legally appended. Locking its exact value turns each legal append
+# into a false alarm. Identifying one needs all three conditions below -- each alone is unsafe:
+#
+#   1. No explicit initializer. Necessary but nowhere near sufficient: SlangImageFormat is an
+#      X-macro enum whose 43 enumerators are all implicit, and SlangScope's four values are too.
+#      Exempting every implicit enumerator would silently downgrade 47 real ABI facts. Those two
+#      enums have no explicitly valued enumerator to measure against at all, which is why an
+#      all-implicit enum is skipped outright below.
+#   2. Exactly one past the enum's highest explicit value -- what "count" structurally means. Not
+#      sufficient alone either: give SlangScope a single explicit value and SLANG_SCOPE_THREAD_GROUP
+#      would satisfy this too, being simply the topmost of a run of implicit values.
+#   3. A count-like name -- the only condition that separates that case from a real sentinel.
+#      Deliberately tight, so the frozen historical markers stay locked:
+#      CompilerOptionName::CountOfParsableOptions and SLANG_PARAMETER_CATEGORY_COUNT_V1 are
+#      count-named but carry explicit initializers and must never move. A sentinel spelled some
+#      other way (`kCount`) trips the canary instead of being waved through -- a human then
+#      widens this pattern deliberately.
+#
+# Everything not matching all three stays byte-exact, so a renumbered or reordered enum still
+# fails the lock exactly as before.
+SENTINEL_NAME = re.compile(r"^(?:CountOf|[A-Z0-9_]+_COUNT(?:_OF)?)$")
+
+
+def is_derived_enumerator(cursor):
+    """True when an enum constant has no explicit initializer, so clang derived its value from the
+    preceding enumerator.
+
+    Test for an *expression* child specifically, not merely for any child: an attribute is a child
+    too, so `SLANG_DEPRECATED Foo,` (slang.h spells that `[[deprecated]]`) would otherwise read as
+    explicitly valued. Scanning the cursor's tokens for '=' is the tempting alternative and is
+    strictly worse -- a macro-generated enumerator reports no tokens at all, so an X-macro entry
+    *with* an initializer would read as derived, and that error opens the lock instead of
+    tightening it."""
+    return not any(c.kind.is_expression() for c in cursor.get_children())
+
+
+def count_sentinels(model):
+    """{(enum, enumerator): value} for derived terminal count sentinels -- the enumerators whose
+    value legally moves when upstream appends. See the SENTINEL_NAME comment for the rules."""
+    out = {}
+    for e in model["enums"]:
+        others = [v["value"] for v in e["values"] if not v.get("derived")]
+        if not others:
+            continue  # an all-implicit enum (X-macro): no stable baseline, so lock every value
+        ceiling = max(others) + 1
+        for v in e["values"]:
+            if v.get("derived") and v["value"] == ceiling and SENTINEL_NAME.match(v["name"]):
+                out[(e["name"], v["name"])] = v["value"]
+    return out
+
+
 def lock_entries(model):
     lines = []
     for e in model["enums"]:
@@ -510,28 +566,42 @@ def lock_entries(model):
     return sorted(lines)
 
 
-def enforce_lock(lock_path, new_lines):
-    """Append-only ABI enforcement: every previously locked fact must still hold. Struct sizes
-    may grow (structureSize-versioned appends); everything else must be byte-identical."""
+def enforce_lock(lock_path, new_lines, sentinels=None):
+    """Append-only ABI enforcement: every previously locked fact must still hold. Struct sizes may
+    grow (structureSize-versioned appends) and derived count sentinels may grow (they sit one past
+    the last enumerator, so any legal append moves them); everything else must be byte-identical.
+    A sentinel that goes backwards, vanishes, is renamed, or gains an explicit initializer still
+    fails -- each of those is a real removal or renumbering rather than an append."""
     if not lock_path.exists():
         return "created"
+    sentinels = sentinels or {}
     old = [l for l in lock_path.read_text().splitlines()
            if l and not l.startswith("#")]
     new_set = set(new_lines)
     new_sizes = {tuple(l.split()[:2]): int(l.split()[3]) for l in new_lines
                  if l.startswith("struct") and l.split()[2] == "size"}
-    problems = []
+    problems, relaxed = [], []
     for line in old:
         parts = line.split()
         if parts[0] == "struct" and parts[2] == "size":
             new_size = new_sizes.get((parts[0], parts[1]))
             if new_size is None or new_size < int(parts[3]):
                 problems.append(f"struct shrank or vanished: {line}")
+        elif parts[0] == "enum" and (parts[1], parts[2]) in sentinels:
+            was, now = int(parts[3]), sentinels[(parts[1], parts[2])]
+            if now < was:
+                problems.append(f"count sentinel went backwards (enumerators removed?): "
+                                f"{line} -> {now}")
+            elif now != was:
+                relaxed.append(f"{parts[1]}::{parts[2]} {was} -> {now}")
         elif line not in new_set:
             problems.append(f"locked ABI fact changed or disappeared: {line}")
     if problems:
         die("ABI lock violations (non-append change in slang.h?):\n  " +
             "\n  ".join(problems[:20]))
+    # Say out loud what was waved through: a relaxation should never be invisible in the log.
+    for r in relaxed:
+        print(f"note: derived count sentinel moved, as an append implies: {r}")
     return "verified"
 
 
@@ -578,21 +648,25 @@ def main():
         print("validating layout across target triples")
         validate_across_triples(index, args.slang_include, res, sdk, layout_snapshot(tu))
 
+    # Write the model before enforcing. enforce_lock() exits non-zero on drift, and the canary's
+    # follow-up step diffs this file to report WHAT changed -- an alarm that swallowed its own
+    # evidence would leave that step with nothing but a missing file.
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    args.out.write_text(json.dumps(model, indent=1, sort_keys=True, ensure_ascii=True) + "\n")
+
     lines = lock_entries(model)
     if args.reset_lock:
         print("WARNING: --reset-lock given; append-only ABI enforcement skipped for this run")
         status = "reset"
     else:
-        status = enforce_lock(args.lock, lines)  # raises on non-append (breaking) drift
+        # raises on non-append (breaking) drift
+        status = enforce_lock(args.lock, lines, count_sentinels(model))
     # --verify (the canary) enforces the lock but never rewrites the committed one.
     if not args.verify:
         args.lock.parent.mkdir(parents=True, exist_ok=True)
         args.lock.write_text(
             "# slang-java ABI lock -- append-only; regenerated by extract_api.py\n"
             f"# slang {args.slang_version}\n" + "\n".join(lines) + "\n")
-
-    args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(model, indent=1, sort_keys=True, ensure_ascii=True) + "\n")
 
     print(f"model: {len(model['interfaces'])} interfaces "
           f"({sum(len(i['methods']) for i in model['interfaces'])} methods), "

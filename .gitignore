@@ -5,6 +5,7 @@ build/
 
 # bindgen extractor virtualenv (recreate: python3 -m venv bindgen/extract/.venv && pip install libclang)
 .venv/
+__pycache__/
 
 # IDE / OS
 .idea/
