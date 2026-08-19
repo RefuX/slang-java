@@ -1,0 +1,304 @@
+name: Slang version bump
+
+# Regenerates everything that is derived from a Slang release — pinned natives + manifests, the
+# extracted ABI model + lock, and the generated Java — then proves it on all four supported
+# platforms before pushing a branch for review.
+#
+# Runs the regeneration on macOS because that is the only host that can do the whole job:
+# extract_api.py finds Xcode's libclang and matching resource headers with no setup (the version
+# match its docstring warns about comes for free), `xcrun` supplies the -isysroot the Apple
+# triples need while the other four parse freestanding against bindgen/extract/shims, and
+# macos-15 is arm64 — the committed model's own `primaryTriple: arm64-apple-macosx`, so the
+# regenerated model does not churn primaryTriple/validatedTriples. On Linux or Windows the
+# six-triple layout cross-check (DESIGN.md 3.4, a hard validation) would have to be skipped.
+#
+# It pushes a BRANCH and stops. Two reasons, both deliberate:
+#   - Anything committed or opened with the default GITHUB_TOKEN does not trigger further
+#     workflow runs. A PR opened here would arrive with no CI, which is the last PR you want
+#     unverified. Pushing a branch is silent (ci.yml triggers on push only for main/master), and
+#     the PR you open by hand fires the full matrix normally. No PAT to manage.
+#   - Publishing stays a human action, per the hard rule in CLAUDE.md.
+# The branch is only pushed after the tests below pass, so it is green before it exists.
+on:
+  workflow_dispatch:
+    inputs:
+      slang_release:
+        description: "Slang release tag, e.g. v2026.14.1 (blank = latest release)"
+        required: false
+        default: ""
+  workflow_call:
+    inputs:
+      slang_release:
+        type: string
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  regen:
+    name: regenerate (macos-15)
+    runs-on: macos-15
+    timeout-minutes: 45
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      tag: ${{ steps.resolve.outputs.tag }}
+      branch: ${{ steps.resolve.outputs.branch }}
+      changed: ${{ steps.patch.outputs.changed }}
+    steps:
+      # The repo's blobs carry CRLF and Windows runners default to core.autocrlf=true, so without
+      # this the regenerated patch (produced on macOS) would not apply on the Windows leg. Pinning
+      # it off before checkout gives every runner a worktree that matches the blobs byte for byte.
+      - name: Take line endings out of the equation
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@v7
+
+      - name: Resolve the target release
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED: ${{ inputs.slang_release }}
+        run: |
+          tag="$REQUESTED"
+          if [ -z "$tag" ]; then
+            tag=$(gh api repos/shader-slang/slang/releases/latest --jq .tag_name)
+            echo "no tag given; latest upstream release is $tag"
+          fi
+          version="${tag#v}"
+          {
+            echo "tag=$tag"
+            echo "version=$version"
+            echo "branch=bump/slang-$version"
+          } >> "$GITHUB_OUTPUT"
+          echo "regenerating against Slang $version ($tag)"
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 25
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      # Only the Python bindings are installed here: configure_libclang() prefers Xcode's
+      # libclang.dylib over the wheel's bundled copy, so the parser matches the resource headers
+      # that `clang -print-resource-dir` hands the non-host triples.
+      - name: Install libclang Python bindings
+        run: pip install libclang==18.1.1
+
+      # Cloned outside the workspace on purpose: the regenerated tree is collected with
+      # `git add -A`, which would otherwise sweep the entire Slang checkout into the patch.
+      - name: Fetch Slang headers at ${{ steps.resolve.outputs.tag }}
+        run: |
+          git clone --depth 1 --filter=blob:none --sparse \
+            --branch "${{ steps.resolve.outputs.tag }}" \
+            https://github.com/shader-slang/slang.git "$RUNNER_TEMP/slang-upstream"
+          cd "$RUNNER_TEMP/slang-upstream" && git sparse-checkout set include
+
+      # The pinned version and the ABI floor move together: PINNED_SLANG_VERSION documents "the
+      # Slang release this binding is generated against and tested with", so it is only correct
+      # to advance it in the same change that regenerates the bindings.
+      - name: Pin the new version
+        env:
+          VERSION: ${{ steps.resolve.outputs.version }}
+        run: |
+          python - "$VERSION" <<'PY'
+          import re, sys
+          version = sys.argv[1]
+          edits = [
+              ("natives/build.gradle.kts", r'(val slangVersion = ")[^"]+(")'),
+              ("slang/src/main/java/io/github/refux/slang/loader/SlangLibrary.java",
+               r'(public static final String PINNED_SLANG_VERSION = ")[^"]+(")'),
+          ]
+          # newline="" both ways: these blobs are CRLF, and Python's default text mode would
+          # rewrite them LF on a macOS runner, turning a one-line pin into a whole-file diff.
+          for path, pattern in edits:
+              text = open(path, encoding="utf-8", newline="").read()
+              patched, n = re.subn(pattern, lambda m: m.group(1) + version + m.group(2), text)
+              if n != 1:
+                  sys.exit(f"{path}: expected 1 version pin, patched {n}")
+              open(path, "w", encoding="utf-8", newline="").write(patched)
+              print(f"pinned {version} in {path}")
+          PY
+
+      # downloadNatives only records a manifest when none exists — it verifies against an existing
+      # one — so the old release's manifests have to go before it can re-record for the new one.
+      - name: Re-record the natives manifests
+        run: |
+          rm natives/manifests/*.json
+          ./gradlew :natives:downloadNatives -PnativesPlatform=all --console=plain
+
+      # No --verify: this ENFORCES the append-only lock and rewrites it. Breaking upstream drift
+      # exits non-zero here and the run stops, which is the gate that makes an unattended
+      # regeneration safe. The model is written only after enforcement passes, so a failed run
+      # cannot leave a rejected ABI in api/slang-api.json for :bindgen:run to consume.
+      - name: Extract the ABI model (all six triples)
+        id: extract
+        run: |
+          python bindgen/extract/extract_api.py \
+            --slang-include "$RUNNER_TEMP/slang-upstream/include" \
+            --slang-version "${{ steps.resolve.outputs.version }}" \
+            --out api/slang-api.json \
+            --lock api/slang-abi.lock
+
+      # When the lock trips, say what moved. --verify writes its model BEFORE enforcing and never
+      # touches the committed files, so it is the one mode that can still produce a diff from a
+      # tree the regeneration above refused to accept.
+      - name: Diagnose breaking drift
+        if: failure() && steps.extract.conclusion == 'failure'
+        run: |
+          python bindgen/extract/extract_api.py \
+            --slang-include "$RUNNER_TEMP/slang-upstream/include" \
+            --slang-version "${{ steps.resolve.outputs.version }}" \
+            --out "$RUNNER_TEMP/upstream-model.json" \
+            --lock api/slang-abi.lock \
+            --verify --skip-cross-triple \
+            --primary-triple arm64-apple-macosx || true
+          python bindgen/extract/diff_model.py api/slang-api.json "$RUNNER_TEMP/upstream-model.json" || true
+
+      - name: Generate the Java bindings
+        run: |
+          ./gradlew :bindgen:run --args="api/slang-api.json slang/src/main/java" --console=plain
+          ./gradlew :slang:spotlessApply --console=plain
+
+      - name: Collect the regenerated tree
+        id: patch
+        run: |
+          git add -A
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "nothing changed — already on this Slang release"
+            exit 0
+          fi
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          git diff --cached --binary > "$RUNNER_TEMP/regen.patch"
+          git diff --cached --stat
+
+      - uses: actions/upload-artifact@v7
+        if: steps.patch.outputs.changed == 'true'
+        with:
+          name: regen-patch
+          path: ${{ runner.temp }}/regen.patch
+          retention-days: 7
+
+  # The regenerated bindings are only meaningful if they still work against the new binaries on
+  # every platform. Each leg also re-downloads its natives, so the freshly recorded manifests are
+  # verified rather than merely written.
+  verify:
+    name: verify (${{ matrix.platform }})
+    needs: regen
+    if: needs.regen.outputs.changed == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { platform: linux-x86_64, runner: ubuntu-latest }
+          - { platform: linux-aarch64, runner: ubuntu-24.04-arm }
+          - { platform: windows-x86_64, runner: windows-latest }
+          - { platform: macos-aarch64, runner: macos-15 }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      # The repo's blobs carry CRLF and Windows runners default to core.autocrlf=true, so without
+      # this the regenerated patch (produced on macOS) would not apply on the Windows leg. Pinning
+      # it off before checkout gives every runner a worktree that matches the blobs byte for byte.
+      - name: Take line endings out of the equation
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: regen-patch
+          path: ${{ runner.temp }}/patch
+
+      - name: Apply the regenerated tree
+        run: git apply --binary "$RUNNER_TEMP/patch/regen.patch"
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 25
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Download the new natives (verifies the re-recorded manifest)
+        run: ./gradlew :natives:downloadNatives --console=plain
+
+      - name: Test against Slang ${{ needs.regen.outputs.version }}
+        run: >
+          ./gradlew :slang:test
+          "-PslangNativesDir=natives/build/payload/${{ matrix.platform }}/lib"
+          --console=plain
+
+  # Only now, with every platform green, does the branch come into existence.
+  push:
+    name: push ${{ needs.regen.outputs.branch }}
+    needs: [regen, verify]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # The repo's blobs carry CRLF and Windows runners default to core.autocrlf=true, so without
+      # this the regenerated patch (produced on macOS) would not apply on the Windows leg. Pinning
+      # it off before checkout gives every runner a worktree that matches the blobs byte for byte.
+      - name: Take line endings out of the equation
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: regen-patch
+          path: ${{ runner.temp }}/patch
+
+      - name: Commit the regeneration
+        env:
+          VERSION: ${{ needs.regen.outputs.version }}
+          TAG: ${{ needs.regen.outputs.tag }}
+          BRANCH: ${{ needs.regen.outputs.branch }}
+        run: |
+          git apply --binary "$RUNNER_TEMP/patch/regen.patch"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add -A
+          git commit -F - <<EOF
+          slang: regenerate against $VERSION
+
+          Pinned natives, per-platform manifests, the extracted ABI model and lock, and the
+          generated Java bindings, all regenerated from $TAG by .github/workflows/slang-bump.yml
+          (run ${{ github.run_id }}).
+
+          The append-only lock was enforced, not reset, so this is an additive ABI change.
+          Extraction ran on macos-15 and cross-validated all six target triples. Every supported
+          platform ran :slang:test against the new binaries before this branch was pushed.
+          EOF
+
+      # Refuses rather than overwrites if the branch already exists and has diverged.
+      - name: Push the branch
+        run: git push origin "HEAD:refs/heads/${{ needs.regen.outputs.branch }}"
+
+      - name: Summary
+        env:
+          BRANCH: ${{ needs.regen.outputs.branch }}
+          VERSION: ${{ needs.regen.outputs.version }}
+        run: |
+          {
+            echo "## Slang $VERSION regenerated"
+            echo
+            echo "Pushed \`$BRANCH\` — green on all four platforms before it was created."
+            echo
+            echo "Open a PR to run CI on it:"
+            echo "https://github.com/${{ github.repository }}/pull/new/$BRANCH"
+            echo
+            echo "A release also needs \`version\` bumped in \`gradle.properties\` and a matching \`v*\` tag."
+          } >> "$GITHUB_STEP_SUMMARY"
