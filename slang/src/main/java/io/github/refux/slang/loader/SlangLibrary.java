@@ -41,7 +41,7 @@ public final class SlangLibrary {
      * The Slang release this binding is generated against and tested with. Newer libraries are
      * expected to work (Slang's public ABI is append-only); older ones are not.
      */
-    public static final String PINNED_SLANG_VERSION = "2026.13";
+    public static final String PINNED_SLANG_VERSION = "2026.14.1";
 
     private static final class Holder {
         static final SlangLibrary INSTANCE = load();
