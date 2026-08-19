@@ -51,6 +51,12 @@ walkthrough as its acceptance test, and Java-implemented COM upcalls serving imp
   headers and enforcing the committed lock (`extract_api.py --verify`, which checks the lock
   without rewriting it). A non-append change fails the run; benign additions are reported. Run
   it on demand from the Actions tab (workflow_dispatch, optional `ref` input).
+- Release watch: `.github/workflows/slang-release-watch.yml` runs weekly and files one tracking
+  issue when upstream ships a release newer than the `slangVersion` pin — the gap the canary
+  never covered, since the canary only speaks when the ABI *breaks*. It stays quiet once a bump
+  branch or an open issue exists, so a stale pin never nags. Dispatch it with `mode: bump` to run
+  the bump workflow from it; that path is off on the schedule until the reusable-workflow
+  permission chain has been proven by one real run (rationale in the workflow header).
 - Verify hand-written struct layouts: `tools/abi-probe.cpp` (build/run instructions in its header)
 - Release: push a tag matching the version in `slang/build.gradle.kts` (e.g. `v0.0.1`) —
   `.github/workflows/release.yml` runs the tests against the pinned binaries, publishes
