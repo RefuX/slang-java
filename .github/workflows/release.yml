@@ -38,6 +38,22 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 
+      # The tag names the release; gradle.properties names the artifacts. Nothing tied the two
+      # together, and the failure is asymmetric: tagging ABOVE the version is self-limiting
+      # because Central rejects a duplicate version at validation, but tagging BELOW it (v0.0.7
+      # while the file already says 0.0.8) publishes 0.0.8 permanently, auto-released, with the
+      # tag and the artifact disagreeing forever and no error anywhere. Check it first, before
+      # anything is downloaded, tested or published.
+      - name: Tag must match gradle.properties
+        run: |
+          version=$(sed -n 's/^version=//p' gradle.properties)
+          [ -n "$version" ] || { echo "::error::no version= in gradle.properties"; exit 1; }
+          if [ "v$version" != "${GITHUB_REF_NAME}" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match gradle.properties version $version (expected v$version) — nothing published"
+            exit 1
+          fi
+          echo "tag ${GITHUB_REF_NAME} matches version $version"
+
       # Fetch every platform's payload — needed for the natives classifier jars and to run the
       # tests (which use the host's, linux-x86_64, payload).
       - name: Download pinned Slang natives (all platforms)
