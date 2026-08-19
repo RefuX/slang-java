@@ -36,6 +36,17 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: bash
+
+# One bump at a time per release. Two dispatches would otherwise regenerate concurrently and race
+# on the same branch, and the loser would only find out at its final step, ~50 minutes in.
+# Not cancel-in-progress: interrupting a run mid-push is worse than making it queue.
+concurrency:
+  group: slang-bump-${{ inputs.slang_release || 'latest' }}
+  cancel-in-progress: false
+
 jobs:
   regen:
     name: regenerate (macos-15)
@@ -47,9 +58,10 @@ jobs:
       branch: ${{ steps.resolve.outputs.branch }}
       changed: ${{ steps.patch.outputs.changed }}
     steps:
-      # The repo's blobs carry CRLF and Windows runners default to core.autocrlf=true, so without
-      # this the regenerated patch (produced on macOS) would not apply on the Windows leg. Pinning
-      # it off before checkout gives every runner a worktree that matches the blobs byte for byte.
+      # Every committed text blob is LF (`git ls-files --eol` reports i/lf). Windows runners
+      # default to core.autocrlf=true, which would materialise a CRLF worktree there — and the
+      # patch below is produced on macOS, so `git apply` would then fail on the Windows leg alone.
+      # Pinning it off gives every runner a worktree byte-identical to the blobs.
       - name: Take line endings out of the equation
         run: git config --global core.autocrlf false
 
@@ -73,6 +85,18 @@ jobs:
             echo "branch=bump/slang-$version"
           } >> "$GITHUB_OUTPUT"
           echo "regenerating against Slang $version ($tag)"
+
+      # Checked here, before ~50 minutes of downloading and regenerating, because the push is
+      # deliberately non-forcing: an existing branch means the run cannot land and should say so
+      # while that costs nothing.
+      - name: Refuse if the branch already exists
+        env:
+          BRANCH: ${{ steps.resolve.outputs.branch }}
+        run: |
+          if git ls-remote --exit-code --heads origin "refs/heads/$BRANCH" >/dev/null 2>&1; then
+            echo "::error::$BRANCH already exists on origin — merge or delete it before re-running"
+            exit 1
+          fi
 
       - uses: actions/setup-java@v5
         with:
@@ -115,8 +139,9 @@ jobs:
               ("slang/src/main/java/io/github/refux/slang/loader/SlangLibrary.java",
                r'(public static final String PINNED_SLANG_VERSION = ")[^"]+(")'),
           ]
-          # newline="" both ways: these blobs are CRLF, and Python's default text mode would
-          # rewrite them LF on a macOS runner, turning a one-line pin into a whole-file diff.
+          # newline="" both ways, so the pin is byte-surgical whatever the checkout holds:
+          # Python's default text mode rewrites every line ending on write, which would turn a
+          # one-line version pin into a whole-file diff the moment the two ever disagree.
           for path, pattern in edits:
               text = open(path, encoding="utf-8", newline="").read()
               patched, n = re.subn(pattern, lambda m: m.group(1) + version + m.group(2), text)
@@ -130,7 +155,7 @@ jobs:
       # one — so the old release's manifests have to go before it can re-record for the new one.
       - name: Re-record the natives manifests
         run: |
-          rm natives/manifests/*.json
+          rm -f natives/manifests/*.json
           ./gradlew :natives:downloadNatives -PnativesPlatform=all --console=plain
 
       # No --verify: this ENFORCES the append-only lock and rewrites it. Breaking upstream drift
@@ -165,6 +190,7 @@ jobs:
         run: |
           ./gradlew :bindgen:run --args="api/slang-api.json slang/src/main/java" --console=plain
           ./gradlew :slang:spotlessApply --console=plain
+          ./gradlew :slang:compileTestJava --console=plain
 
       - name: Collect the regenerated tree
         id: patch
@@ -173,6 +199,8 @@ jobs:
           if git diff --cached --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "nothing changed — already on this Slang release"
+            echo "## Already on Slang ${{ steps.resolve.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
+            echo "Nothing to regenerate, so nothing was pushed." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -184,7 +212,8 @@ jobs:
         with:
           name: regen-patch
           path: ${{ runner.temp }}/regen.patch
-          retention-days: 7
+          if-no-files-found: error
+          retention-days: 30
 
   # The regenerated bindings are only meaningful if they still work against the new binaries on
   # every platform. Each leg also re-downloads its natives, so the freshly recorded manifests are
@@ -203,13 +232,11 @@ jobs:
           - { platform: macos-aarch64, runner: macos-15 }
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
-    defaults:
-      run:
-        shell: bash
     steps:
-      # The repo's blobs carry CRLF and Windows runners default to core.autocrlf=true, so without
-      # this the regenerated patch (produced on macOS) would not apply on the Windows leg. Pinning
-      # it off before checkout gives every runner a worktree that matches the blobs byte for byte.
+      # Every committed text blob is LF (`git ls-files --eol` reports i/lf). Windows runners
+      # default to core.autocrlf=true, which would materialise a CRLF worktree there — and the
+      # patch below is produced on macOS, so `git apply` would then fail on the Windows leg alone.
+      # Pinning it off gives every runner a worktree byte-identical to the blobs.
       - name: Take line endings out of the equation
         run: git config --global core.autocrlf false
 
@@ -244,12 +271,14 @@ jobs:
     name: push ${{ needs.regen.outputs.branch }}
     needs: [regen, verify]
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: write
     steps:
-      # The repo's blobs carry CRLF and Windows runners default to core.autocrlf=true, so without
-      # this the regenerated patch (produced on macOS) would not apply on the Windows leg. Pinning
-      # it off before checkout gives every runner a worktree that matches the blobs byte for byte.
+      # Every committed text blob is LF (`git ls-files --eol` reports i/lf). Windows runners
+      # default to core.autocrlf=true, which would materialise a CRLF worktree there — and the
+      # patch below is produced on macOS, so `git apply` would then fail on the Windows leg alone.
+      # Pinning it off gives every runner a worktree byte-identical to the blobs.
       - name: Take line endings out of the equation
         run: git config --global core.autocrlf false
 
@@ -279,13 +308,17 @@ jobs:
           (run ${{ github.run_id }}).
 
           The append-only lock was enforced, not reset, so this is an additive ABI change.
-          Extraction ran on macos-15 and cross-validated all six target triples. Every supported
-          platform ran :slang:test against the new binaries before this branch was pushed.
+          Extraction ran on macos-15 and cross-validated all six target triples. :slang:test ran
+          against the new binaries on the four platforms ci.yml covers before this branch was
+          pushed; windows-aarch64 and macos-x86_64 are published but untested, as they are today.
           EOF
 
-      # Refuses rather than overwrites if the branch already exists and has diverged.
+      # Non-forcing, so a diverged branch is refused rather than overwritten. The regen job
+      # already pre-flighted this; the guard stays because the two are ~50 minutes apart.
       - name: Push the branch
-        run: git push origin "HEAD:refs/heads/${{ needs.regen.outputs.branch }}"
+        env:
+          BRANCH: ${{ needs.regen.outputs.branch }}
+        run: git push origin "HEAD:refs/heads/$BRANCH"
 
       - name: Summary
         env:
@@ -295,7 +328,7 @@ jobs:
           {
             echo "## Slang $VERSION regenerated"
             echo
-            echo "Pushed \`$BRANCH\` — green on all four platforms before it was created."
+            echo "Pushed \`$BRANCH\` — green on all four tested platforms before it existed."
             echo
             echo "Open a PR to run CI on it:"
             echo "https://github.com/${{ github.repository }}/pull/new/$BRANCH"
