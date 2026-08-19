@@ -30,7 +30,14 @@ walkthrough as its acceptance test, and Java-implemented COM upcalls serving imp
   code is excluded — the generator's output is the canonical formatting). Convention: generated
   code always lives in a `.gen` package (`ffi/gen` for raw dispatch, `gen` for the reflection
   wrapper bases); hand-written veneers live in the parent package.
-- Regenerate the bindings (e.g. after a Slang version bump) — two commands, then rerun tests:
+- Bump to a new Slang release: run the **Slang version bump** workflow
+  (`.github/workflows/slang-bump.yml`) from the Actions tab — optional `slang_release` tag input,
+  blank takes the latest. It re-pins the natives, re-records all six manifests, regenerates the
+  ABI model/lock and the Java, tests every platform, and pushes `bump/slang-<version>` only once
+  all four are green; you open the PR (a branch pushed by CI is silent, and anything the default
+  token opens arrives with no CI). It runs on macOS because that is the only host that can
+  cross-validate all six triples and reproduce the model's own `arm64-apple-macosx` primary
+  triple. To do it by hand instead, or to understand what that workflow runs:
   1. `bindgen/extract/.venv/bin/python bindgen/extract/extract_api.py --slang-include <slang-repo>/include --slang-version <ver> --out api/slang-api.json --lock api/slang-abi.lock`
   2. `./gradlew :bindgen:run --args="api/slang-api.json slang/src/main/java"`
   One-time venv setup: `python3 -m venv bindgen/extract/.venv && bindgen/extract/.venv/bin/pip install libclang`.
