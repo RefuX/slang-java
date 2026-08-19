@@ -1,0 +1,169 @@
+name: Slang release watch
+
+# Closes the one gap the ABI canary never covered. The canary answers "did upstream break the
+# append-only contract?" against `master`, and it is silent when the answer is no — which is
+# almost always. Nothing answered "has upstream shipped a release we are behind?", so the pin sat
+# three releases stale (2026.13.1, 2026.14, 2026.14.1) and that only surfaced by reading a canary
+# report by hand.
+#
+# This watches releases and files a tracking issue when the pin falls behind. It deliberately does
+# NOT open the issue again every week: an existing open issue for that version, or an existing
+# bump branch, means the work is already tracked and the run stays quiet.
+#
+# Dispatching it with mode=bump also runs the regeneration (.github/workflows/slang-bump.yml),
+# which ends with a green branch ready to review. That is off by default on the schedule for one
+# specific reason, recorded here so the next person does not "fix" it: a called workflow's
+# GITHUB_TOKEN permissions can only be maintained or reduced through the chain, never elevated,
+# and slang-bump's push job needs contents: write. The `bump` job below grants it, but that chain
+# cannot be exercised until it runs for real. Prove it once by hand with mode=bump; if it works,
+# flipping the schedule to bump is a one-line change to the `if:` below.
+on:
+  schedule:
+    - cron: "0 7 * * 1" # Mondays 07:00 UTC, an hour after the ABI canary
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "issue = file a tracking issue only; bump = also regenerate"
+        type: choice
+        options: [issue, bump]
+        default: issue
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: slang-release-watch
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: check for a newer Slang release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      behind: ${{ steps.compare.outputs.behind }}
+      pinned: ${{ steps.compare.outputs.pinned }}
+      latest: ${{ steps.compare.outputs.latest }}
+      tag: ${{ steps.compare.outputs.tag }}
+      branch: ${{ steps.compare.outputs.branch }}
+      tracked: ${{ steps.compare.outputs.tracked }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Compare the pinned release against the latest upstream
+        id: compare
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          # natives/build.gradle.kts is the pin of record for which binaries ship. (The library's
+          # own PINNED_SLANG_VERSION is a floor that moves with the bindings, not with the
+          # natives, so it is the wrong thing to compare against here.)
+          pinned=$(sed -n 's/^val slangVersion = "\(.*\)"$/\1/p' natives/build.gradle.kts)
+          [ -n "$pinned" ] || { echo "::error::could not read slangVersion from natives/build.gradle.kts"; exit 1; }
+
+          tag=$(gh api repos/shader-slang/slang/releases/latest --jq .tag_name)
+          latest="${tag#v}"
+          branch="bump/slang-$latest"
+
+          echo "pinned=$pinned"  >> "$GITHUB_OUTPUT"
+          echo "latest=$latest"  >> "$GITHUB_OUTPUT"
+          echo "tag=$tag"        >> "$GITHUB_OUTPUT"
+          echo "branch=$branch"  >> "$GITHUB_OUTPUT"
+
+          if [ "$pinned" = "$latest" ]; then
+            echo "behind=false" >> "$GITHUB_OUTPUT"
+            echo "tracked=none" >> "$GITHUB_OUTPUT"
+            echo "pinned to $pinned, which is the latest release — nothing to do"
+            echo "## Slang $pinned is current" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "behind=true" >> "$GITHUB_OUTPUT"
+          echo "pinned $pinned, upstream latest $latest"
+
+          # Already in flight? Either state means a human has the work; say so and stay quiet
+          # rather than filing a duplicate every Monday.
+          if git ls-remote --exit-code --heads origin "refs/heads/$branch" >/dev/null 2>&1; then
+            echo "tracked=branch" >> "$GITHUB_OUTPUT"
+          elif [ "$(gh issue list --state open --search "Slang $latest in:title" --json number --jq 'length')" != "0" ]; then
+            echo "tracked=issue" >> "$GITHUB_OUTPUT"
+          else
+            echo "tracked=none" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Summarise
+        if: steps.compare.outputs.behind == 'true'
+        env:
+          PINNED: ${{ steps.compare.outputs.pinned }}
+          LATEST: ${{ steps.compare.outputs.latest }}
+          TRACKED: ${{ steps.compare.outputs.tracked }}
+          BRANCH: ${{ steps.compare.outputs.branch }}
+        run: |
+          {
+            echo "## Slang $LATEST is available (pinned: $PINNED)"
+            echo
+            case "$TRACKED" in
+              branch) echo "Already regenerated — \`$BRANCH\` is waiting for a PR." ;;
+              issue)  echo "Already tracked by an open issue." ;;
+              none)   echo "Filing a tracking issue." ;;
+            esac
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # Only when nothing is tracking it yet, so a stale pin produces exactly one issue rather than
+  # one per week.
+  file-issue:
+    name: file a tracking issue
+    needs: check
+    if: needs.check.outputs.behind == 'true' && needs.check.outputs.tracked == 'none'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      issues: write
+    steps:
+      - name: Open it
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PINNED: ${{ needs.check.outputs.pinned }}
+          LATEST: ${{ needs.check.outputs.latest }}
+          TAG: ${{ needs.check.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh issue create \
+            --title "Bump Slang $PINNED → $LATEST" \
+            --body "$(cat <<EOF
+          Upstream has released [\`$TAG\`](https://github.com/shader-slang/slang/releases/tag/$TAG);
+          \`natives/build.gradle.kts\` still pins \`$PINNED\`.
+
+          Run the **Slang version bump** workflow with \`slang_release: $TAG\`:
+
+          https://github.com/$REPO/actions/workflows/slang-bump.yml
+
+          It re-pins the natives, re-records all six manifests, regenerates the ABI model, lock and
+          Java on macOS across all six triples, tests every platform CI covers, and pushes
+          \`bump/slang-$LATEST\` only once those are green — then you open the PR.
+
+          Nothing is urgent here. Slang's public ABI is append-only, so being behind a release does
+          not break anything; it only means the newest options are not exposed yet. If the bump
+          run fails the ABI lock instead, that IS urgent — it means upstream broke the contract,
+          and the run reports exactly which facts moved.
+
+          _Filed automatically by \`.github/workflows/slang-release-watch.yml\`._
+          EOF
+          )"
+
+  # Off on the schedule until the permission chain has been proven by a real run — see the header.
+  bump:
+    name: regenerate
+    needs: check
+    if: needs.check.outputs.behind == 'true' && needs.check.outputs.tracked != 'branch' && inputs.mode == 'bump'
+    permissions:
+      contents: write
+    uses: ./.github/workflows/slang-bump.yml
+    with:
+      slang_release: ${{ needs.check.outputs.tag }}
