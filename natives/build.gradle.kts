@@ -14,7 +14,7 @@ import java.util.zip.ZipInputStream
 // SHA-256s. The per-platform subprojects (:natives:<os>-<arch>) package those payloads as the
 // publishable io.github.refux:slang-java-natives-<os>-<arch> artifacts. DESIGN.md §3.1/§7/§16.
 
-val slangVersion = "2026.14.1"
+val slangVersion = "2026.16"
 
 // os-arch → official release asset name. The plain linux zips target the release builders'
 // glibc; -glibc-2.27 / -2.28 variants exist upstream for older distros if ever needed.
