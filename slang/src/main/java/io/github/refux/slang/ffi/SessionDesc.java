@@ -45,6 +45,15 @@ public final class SessionDesc {
     }
 
     /**
+     * Sets how the session lays out matrices. The header default this descriptor is allocated with
+     * is {@code SLANG_MATRIX_LAYOUT_ROW_MAJOR}, which is NOT what the {@code slangc} command line
+     * uses — see {@code MatrixLayout} for what that costs a project that compiles both ways.
+     */
+    public static void setDefaultMatrixLayoutMode(MemorySegment desc, int mode) {
+        io.github.refux.slang.ffi.gen.SessionDesc.setDefaultMatrixLayoutMode(desc, mode);
+    }
+
+    /**
      * Points {@code fileSystem} at an {@code ISlangFileSystem} COM pointer (e.g. a
      * {@link JavaFileSystem}'s {@code segment()}); the session add-refs it during creation.
      */

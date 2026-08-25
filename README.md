@@ -15,14 +15,14 @@ directly. Windows, macOS, and Linux, on x86_64 and aarch64. Requires JDK 25+.
 
 | Artifact                                               | Purpose |
 |--------------------------------------------------------|---|
-| `io.github.refux:slang-java:0.0.7`                     | The library: compiler API, reflection, Java file systems |
-| `io.github.refux:slang-java-natives:0.0.7:<os>-<arch>` | The official Slang binaries, as one classifier per platform: `windows`, `linux`, or `macos` × `x86_64` or `aarch64` |
+| `io.github.refux:slang-java:0.0.8`                     | The library: compiler API, reflection, Java file systems |
+| `io.github.refux:slang-java-natives:0.0.8:<os>-<arch>` | The official Slang binaries, as one classifier per platform: `windows`, `linux`, or `macos` × `x86_64` or `aarch64` |
 
 The library version tracks slang-java's own API, not Slang's. To see which Slang release a jar
 binds, read its manifest — no resolving, no running:
 
 ```bash
-unzip -p slang-java-0.0.7.jar META-INF/MANIFEST.MF
+unzip -p slang-java-0.0.8.jar META-INF/MANIFEST.MF
 ```
 
 `Slang-Version` there is a **floor**, not a lockstep: it names the release the bindings were
@@ -46,8 +46,8 @@ val slangNatives = "${
 }-${if (System.getProperty("os.arch") in listOf("aarch64", "arm64")) "aarch64" else "x86_64"}"
 
 dependencies {
-    implementation("io.github.refux:slang-java:0.0.7")
-    runtimeOnly("io.github.refux:slang-java-natives:0.0.7:$slangNatives")
+    implementation("io.github.refux:slang-java:0.0.8")
+    runtimeOnly("io.github.refux:slang-java-natives:0.0.8:$slangNatives")
 }
 
 tasks.withType<JavaExec> {
@@ -60,10 +60,10 @@ classpath together and the loader picks the host's at runtime (LWJGL-style):
 
 ```kotlin
 dependencies {
-    implementation("io.github.refux:slang-java:0.0.7")
-    runtimeOnly("io.github.refux:slang-java-natives:0.0.7:macos-aarch64")
-    runtimeOnly("io.github.refux:slang-java-natives:0.0.7:windows-x86_64")
-    runtimeOnly("io.github.refux:slang-java-natives:0.0.7:linux-x86_64")
+    implementation("io.github.refux:slang-java:0.0.8")
+    runtimeOnly("io.github.refux:slang-java-natives:0.0.8:macos-aarch64")
+    runtimeOnly("io.github.refux:slang-java-natives:0.0.8:windows-x86_64")
+    runtimeOnly("io.github.refux:slang-java-natives:0.0.8:linux-x86_64")
 }
 ```
 
@@ -110,6 +110,11 @@ Session session = global.newSession()
         "common.slang", "public static const float kScale = 2.0;")))
     .create();
 ```
+
+Matrices follow `SessionDesc`'s row-major default, which is **not** what the `slangc` command
+line uses — compile the same shader offline with `slangc` and at run time through this library
+and every matrix comes out transposed relative to the other build, with nothing to diagnose it.
+`matrixLayout(MatrixLayout.COLUMN_MAJOR)` on the session builder matches `slangc`.
 
 Everything is `AutoCloseable` with try-with-resources as the idiom; anything left unclosed is
 released by a Cleaner when unreachable, and `-Dio.github.refux.slang.debug=true` traces leaks
