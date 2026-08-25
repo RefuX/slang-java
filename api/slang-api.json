@@ -2016,12 +2016,24 @@
      "value": 2018
     },
     {
+     "name": "SLANG_LANGUAGE_VERSION_202A",
+     "value": 2025
+    },
+    {
      "name": "SLANG_LANGUAGE_VERSION_2025",
      "value": 2025
     },
     {
+     "name": "SLANG_LANGUAGE_VERSION_202B",
+     "value": 2026
+    },
+    {
      "name": "SLANG_LANGUAGE_VERSION_2026",
      "value": 2026
+    },
+    {
+     "name": "SLANG_LANGUAGE_VERSION_202C",
+     "value": 2027
     },
     {
      "name": "SLANG_LANGAUGE_VERSION_DEFAULT",
@@ -2034,6 +2046,10 @@
     {
      "name": "SLANG_LANGUAGE_VERSION_LATEST",
      "value": 2026
+    },
+    {
+     "name": "SLANG_LANGUAGE_VERSION_NEXT",
+     "value": 2027
     }
    ]
   },
@@ -11711,7 +11727,7 @@
    "method": "hasDefaultValue"
   }
  ],
- "slangVersion": "2026.14.1",
+ "slangVersion": "2026.16",
  "structs": [
   {
    "align": 4,
