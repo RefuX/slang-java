@@ -111,6 +111,11 @@ Session session = global.newSession()
     .create();
 ```
 
+Matrices follow `SessionDesc`'s row-major default, which is **not** what the `slangc` command
+line uses — compile the same shader offline with `slangc` and at run time through this library
+and every matrix comes out transposed relative to the other build, with nothing to diagnose it.
+`matrixLayout(MatrixLayout.COLUMN_MAJOR)` on the session builder matches `slangc`.
+
 Everything is `AutoCloseable` with try-with-resources as the idiom; anything left unclosed is
 released by a Cleaner when unreachable, and `-Dio.github.refux.slang.debug=true` traces leaks
 to their allocation site and asserts session thread confinement.

@@ -27,6 +27,7 @@ public final class SessionBuilder {
     private final Map<String, String> defines = new LinkedHashMap<>();
     private Consumer<String> onDiagnostics;
     private SlangFileSystem fileSystem;
+    private MatrixLayout matrixLayout;
 
     SessionBuilder(GlobalSession global) {
         this.global = global;
@@ -68,6 +69,20 @@ public final class SessionBuilder {
     }
 
     /**
+     * Sets how this session lays out matrices, overriding the {@code SessionDesc} header default of
+     * {@link MatrixLayout#ROW_MAJOR}.
+     *
+     * <p>Set it to {@link MatrixLayout#COLUMN_MAJOR} to match what the {@code slangc} command line
+     * produces. A project that compiles some shaders offline with {@code slangc} and others at run
+     * time through this library and does NOT set this gets silently transposed matrices in whichever
+     * half it compiled here — see {@link MatrixLayout}.
+     */
+    public SessionBuilder matrixLayout(MatrixLayout layout) {
+        this.matrixLayout = layout;
+        return this;
+    }
+
+    /**
      * Resolves the session's {@code import}s/{@code #include}s through Java instead of the OS
      * file system — see {@link SlangFileSystem} for ready-made map- and directory-backed
      * implementations.
@@ -105,6 +120,9 @@ public final class SessionBuilder {
 
             MemorySegment sessionDesc = SessionDesc.allocate(arena);
             SessionDesc.setTargets(sessionDesc, targetArray, targets.size());
+            if (matrixLayout != null) {
+                SessionDesc.setDefaultMatrixLayoutMode(sessionDesc, matrixLayout.value());
+            }
             if (!searchPaths.isEmpty()) {
                 String[] paths = searchPaths.stream().map(Path::toString).toArray(String[]::new);
                 SessionDesc.setSearchPaths(sessionDesc, Marshal.utf8PointerArray(arena, paths), paths.length);
