@@ -134,7 +134,9 @@ jobs:
           TAG: ${{ needs.check.outputs.tag }}
         run: |
           set -euo pipefail
+          # This job has no checkout — gh cannot infer the repo from git, so name it explicitly.
           gh issue create \
+            --repo "$REPO" \
             --title "Bump Slang $PINNED → $LATEST" \
             --body "$(cat <<EOF
           Upstream has released [\`$TAG\`](https://github.com/shader-slang/slang/releases/tag/$TAG);
