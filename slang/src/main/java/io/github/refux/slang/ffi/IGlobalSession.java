@@ -38,16 +38,16 @@ public final class IGlobalSession extends IUnknown {
     }
 
     /**
-     * The payload directory as a native string, allocated once per process, or {@link
-     * MemorySegment#NULL} when the library came from the platform's search path. Held globally
-     * because Slang's lifetime contract for the string handed to {@code setDownstreamCompilerPath}
-     * is not documented, so it must outlive the call.
+     * The payload directory as a native string, allocated once per process, or {@code null} when
+     * the library came from the platform's search path. Held globally because Slang's lifetime
+     * contract for the string handed to {@code setDownstreamCompilerPath} is not documented, so it
+     * must outlive the call.
      */
     private static final class DownstreamPath {
         static final MemorySegment SEGMENT = SlangLibrary.get()
                 .directory()
                 .map(dir -> Arena.global().allocateFrom(dir.toString()))
-                .orElse(MemorySegment.NULL);
+                .orElse(null);
     }
 
     /**
@@ -65,7 +65,8 @@ public final class IGlobalSession extends IUnknown {
      * the same pinning {@link SlangLibrary}'s class-path case already promises.
      */
     private void pinDownstreamCompilersToPayload() {
-        if (DownstreamPath.SEGMENT.equals(MemorySegment.NULL)) {
+        MemorySegment payloadDir = DownstreamPath.SEGMENT;
+        if (payloadDir == null) {
             return; // Loaded off the platform search path; the host's own search order applies.
         }
         for (int passThrough : new int[] {
@@ -73,8 +74,7 @@ public final class IGlobalSession extends IUnknown {
             SlangPassThrough.SLANG_PASS_THROUGH_SPIRV_DIS,
             SlangPassThrough.SLANG_PASS_THROUGH_SPIRV_OPT
         }) {
-            io.github.refux.slang.ffi.gen.IGlobalSession.setDownstreamCompilerPath(
-                    segment(), passThrough, DownstreamPath.SEGMENT);
+            io.github.refux.slang.ffi.gen.IGlobalSession.setDownstreamCompilerPath(segment(), passThrough, payloadDir);
         }
     }
 

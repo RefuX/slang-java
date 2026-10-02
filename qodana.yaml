@@ -12,6 +12,12 @@ linter: jetbrains/qodana-jvm-community:2026.1
 profile:
   name: qodana.recommended
 
+# Warnings are errors: any finding fails the run (and so the check). On PRs and pushes the action
+# analyses only the changed files, so this gates new findings; a dispatched run scans everything.
+failureConditions:
+  severityThresholds:
+    any: 0
+
 # Generated code is emitted clean and is not hand-maintained; exclude it from findings.
 exclude:
   - name: All
