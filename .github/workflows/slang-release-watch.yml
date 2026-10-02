@@ -6,9 +6,11 @@ name: Slang release watch
 # three releases stale (2026.13.1, 2026.14, 2026.14.1) and that only surfaced by reading a canary
 # report by hand.
 #
-# This watches releases and files a tracking issue when the pin falls behind. It deliberately does
-# NOT open the issue again every week: an existing open issue for that version, or an existing
-# bump branch, means the work is already tracked and the run stays quiet.
+# This watches releases and keeps ONE open tracking issue while the pin is behind. Upstream ships
+# most weeks, so the issue cannot be keyed on the latest release — that filed a fresh one every
+# Monday for the same stale pin. Instead, the open issue this watch filed is retitled to the newest
+# release as upstream moves on (an edit, so nobody is notified again), and a bump branch for the
+# latest release keeps the run quiet altogether.
 #
 # Dispatching it with mode=bump also runs the regeneration (.github/workflows/slang-bump.yml),
 # which ends with a green branch ready to review. That is off by default on the schedule for one
@@ -51,6 +53,8 @@ jobs:
       tag: ${{ steps.compare.outputs.tag }}
       branch: ${{ steps.compare.outputs.branch }}
       tracked: ${{ steps.compare.outputs.tracked }}
+      issue: ${{ steps.compare.outputs.issue }}
+      title: ${{ steps.compare.outputs.title }}
     steps:
       - uses: actions/checkout@v7
 
@@ -86,14 +90,25 @@ jobs:
           echo "behind=true" >> "$GITHUB_OUTPUT"
           echo "pinned $pinned, upstream latest $latest"
 
-          # Already in flight? Either state means a human has the work; say so and stay quiet
-          # rather than filing a duplicate every Monday.
+          title="Bump Slang $pinned → $latest"
+          echo "title=$title" >> "$GITHUB_OUTPUT"
+
+          # Already in flight? A bump branch means a human has the work. Otherwise find the issue an
+          # earlier run filed — any open one, whichever release it named then, since matching on
+          # the latest release is what used to file a new issue every week upstream shipped.
+          open=$(gh issue list --state open --limit 100 --json number,title,author --jq \
+            '[.[] | select(.author.is_bot and (.title | startswith("Bump Slang ")))] | first // empty | "\(.number)\t\(.title)"')
           if git ls-remote --exit-code --heads origin "refs/heads/$branch" >/dev/null 2>&1; then
             echo "tracked=branch" >> "$GITHUB_OUTPUT"
-          elif [ "$(gh issue list --state open --search "Slang $latest in:title" --json number --jq 'length')" != "0" ]; then
-            echo "tracked=issue" >> "$GITHUB_OUTPUT"
-          else
+          elif [ -z "$open" ]; then
             echo "tracked=none" >> "$GITHUB_OUTPUT"
+          else
+            echo "issue=${open%%$'\t'*}" >> "$GITHUB_OUTPUT"
+            if [ "${open#*$'\t'}" = "$title" ]; then
+              echo "tracked=issue" >> "$GITHUB_OUTPUT"
+            else
+              echo "tracked=stale-issue" >> "$GITHUB_OUTPUT"
+            fi
           fi
 
       - name: Summarise
@@ -103,42 +118,42 @@ jobs:
           LATEST: ${{ steps.compare.outputs.latest }}
           TRACKED: ${{ steps.compare.outputs.tracked }}
           BRANCH: ${{ steps.compare.outputs.branch }}
+          ISSUE: ${{ steps.compare.outputs.issue }}
         run: |
           {
             echo "## Slang $LATEST is available (pinned: $PINNED)"
             echo
             case "$TRACKED" in
-              branch) echo "Already regenerated — \`$BRANCH\` is waiting for a PR." ;;
-              issue)  echo "Already tracked by an open issue." ;;
-              none)   echo "Filing a tracking issue." ;;
+              branch)      echo "Already regenerated — \`$BRANCH\` is waiting for a PR." ;;
+              issue)       echo "Already tracked by #$ISSUE." ;;
+              stale-issue) echo "Retitling #$ISSUE to Slang $LATEST." ;;
+              none)        echo "Filing a tracking issue." ;;
             esac
           } >> "$GITHUB_STEP_SUMMARY"
 
-  # Only when nothing is tracking it yet, so a stale pin produces exactly one issue rather than
-  # one per week.
-  file-issue:
-    name: file a tracking issue
+  # Files the tracking issue, or brings the open one up to the latest release, so a stale pin has
+  # exactly one issue rather than one per release.
+  track-issue:
+    name: file or retitle the tracking issue
     needs: check
-    if: needs.check.outputs.behind == 'true' && needs.check.outputs.tracked == 'none'
+    if: needs.check.outputs.behind == 'true' && (needs.check.outputs.tracked == 'none' || needs.check.outputs.tracked == 'stale-issue')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       issues: write
     steps:
-      - name: Open it
+      - name: Open it, or retitle the open one
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PINNED: ${{ needs.check.outputs.pinned }}
           LATEST: ${{ needs.check.outputs.latest }}
           TAG: ${{ needs.check.outputs.tag }}
+          TITLE: ${{ needs.check.outputs.title }}
+          ISSUE: ${{ needs.check.outputs.issue }}
         run: |
           set -euo pipefail
-          # This job has no checkout — gh cannot infer the repo from git, so name it explicitly.
-          gh issue create \
-            --repo "$REPO" \
-            --title "Bump Slang $PINNED → $LATEST" \
-            --body "$(cat <<EOF
+          cat > "$RUNNER_TEMP/issue.md" <<EOF
           Upstream has released [\`$TAG\`](https://github.com/shader-slang/slang/releases/tag/$TAG);
           \`natives/build.gradle.kts\` still pins \`$PINNED\`.
 
@@ -153,11 +168,19 @@ jobs:
           Nothing is urgent here. Slang's public ABI is append-only, so being behind a release does
           not break anything; it only means the newest options are not exposed yet. If the bump
           run fails the ABI lock instead, that IS urgent — it means upstream broke the contract,
-          and the run reports exactly which facts moved.
+          the run reports exactly which facts moved, and the bump has to be done by hand (see
+          CLAUDE.md).
 
-          _Filed automatically by \`.github/workflows/slang-release-watch.yml\`._
+          _Filed by \`.github/workflows/slang-release-watch.yml\`, which retitles this issue as
+          newer releases ship rather than filing another._
           EOF
-          )"
+
+          # This job has no checkout — gh cannot infer the repo from git, so name it explicitly.
+          if [ -n "$ISSUE" ]; then
+            gh issue edit "$ISSUE" --repo "$REPO" --title "$TITLE" --body-file "$RUNNER_TEMP/issue.md"
+          else
+            gh issue create --repo "$REPO" --title "$TITLE" --body-file "$RUNNER_TEMP/issue.md"
+          fi
 
   # Off on the schedule until the permission chain has been proven by a real run — see the header.
   bump:
