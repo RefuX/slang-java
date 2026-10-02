@@ -54,6 +54,15 @@ public final class SessionDesc {
     }
 
     /**
+     * Points {@code compilerOptionEntries} at a {@link CompilerOptionEntry} array of {@code count}.
+     * Every target inherits these, and its own entries override them.
+     */
+    public static void setCompilerOptionEntries(MemorySegment desc, MemorySegment entryArray, int count) {
+        io.github.refux.slang.ffi.gen.SessionDesc.setCompilerOptionEntries(desc, entryArray);
+        io.github.refux.slang.ffi.gen.SessionDesc.setCompilerOptionEntryCount(desc, count);
+    }
+
+    /**
      * Points {@code fileSystem} at an {@code ISlangFileSystem} COM pointer (e.g. a
      * {@link JavaFileSystem}'s {@code segment()}); the session add-refs it during creation.
      */

@@ -44,6 +44,19 @@ public class ComponentType extends NativeObject {
         return componentHandle().getEntryPointCode(entryPointIndex, targetIndex);
     }
 
+    /**
+     * Target code for a whole linked component — all its entry points in one artifact, such as a
+     * single SPIR-V module, or a WGSL or Metal library — where {@link #entryPointCode} gives one
+     * entry point at a time.
+     *
+     * @param targetIndex index into the session's target list, in {@link SessionBuilder#target}
+     *     order
+     */
+    public byte[] targetCode(long targetIndex) {
+        session.checkThread();
+        return componentHandle().getTargetCode(targetIndex);
+    }
+
     /** The lazy reflection tree for {@code targetIndex} (parameters, entry points, layouts). */
     public ShaderReflection layout(long targetIndex) {
         session.checkThread();

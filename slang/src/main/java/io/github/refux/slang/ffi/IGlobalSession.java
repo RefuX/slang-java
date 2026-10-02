@@ -114,4 +114,48 @@ public final class IGlobalSession extends IUnknown {
     public String getBuildTagString() {
         return SlangNative.readUtf8(io.github.refux.slang.ffi.gen.IGlobalSession.getBuildTagString(segment()));
     }
+
+    /** {@code SLANG_OK} when this build can produce {@code compileTarget} (a {@code SlangCompileTarget}). */
+    public int checkCompileTargetSupport(int compileTarget) {
+        return io.github.refux.slang.ffi.gen.IGlobalSession.checkCompileTargetSupport(segment(), compileTarget);
+    }
+
+    /** {@code SLANG_OK} when the downstream compiler {@code passThrough} (a {@code SlangPassThrough}) is available. */
+    public int checkPassThroughSupport(int passThrough) {
+        return io.github.refux.slang.ffi.gen.IGlobalSession.checkPassThroughSupport(segment(), passThrough);
+    }
+
+    /**
+     * Looks up a capability id by name (e.g. {@code "spirv_1_5"}), as the {@code Capability} compiler
+     * option takes it. Returns {@code SLANG_CAPABILITY_UNKNOWN} (0) for unknown names.
+     */
+    public int findCapability(String name) {
+        try (Arena arena = Arena.ofConfined()) {
+            return io.github.refux.slang.ffi.gen.IGlobalSession.findCapability(segment(), arena.allocateFrom(name));
+        }
+    }
+
+    /**
+     * The on-disk path of the library Slang would load for the downstream compiler
+     * {@code passThrough}, or null when there is none: {@code SLANG_E_NOT_FOUND} (not located) and
+     * {@code SLANG_E_NOT_AVAILABLE} (loaded, but not from a shared library — executable-based
+     * compilers such as Clang, GCC or Metal) both mean no path. Added in Slang 2026.17, in the vtable
+     * slot that held {@code getDownstreamCompilerVersion} before it.
+     */
+    public String getDownstreamCompilerPath(int passThrough) {
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment outPath = arena.allocate(ADDRESS);
+            int result = io.github.refux.slang.ffi.gen.IGlobalSession.getDownstreamCompilerPath(
+                    segment(), passThrough, outPath);
+            if (result == SlangNative.SLANG_E_NOT_FOUND || result == SlangNative.SLANG_E_NOT_AVAILABLE) {
+                return null;
+            }
+            if (!SlangNative.succeeded(result)) {
+                throw new SlangException("IGlobalSession::getDownstreamCompilerPath failed", result);
+            }
+            try (ISlangBlob path = new ISlangBlob(outPath.get(ADDRESS, 0))) {
+                return path.toUtf8String();
+            }
+        }
+    }
 }

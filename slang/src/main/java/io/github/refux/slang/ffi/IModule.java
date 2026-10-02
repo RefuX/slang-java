@@ -5,6 +5,8 @@ import static java.lang.foreign.ValueLayout.ADDRESS;
 import io.github.refux.slang.SlangException;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Wrapper for {@code slang::IModule}. Raw vtable dispatch lives in the generated
@@ -33,6 +35,70 @@ public final class IModule extends IComponentType {
             }
             return new IEntryPoint(out.get(ADDRESS, 0));
         }
+    }
+
+    /**
+     * Finds a function by name and checks it as an entry point for {@code stage} (a
+     * {@code SlangStage}) — for functions without a {@code [shader("...")]} attribute; one that has
+     * it is returned as is. Caller-owned, like {@link #findEntryPointByName}.
+     *
+     * @throws io.github.refux.slang.SlangCompileException with the compiler's diagnostics when there
+     *     is no such function or it is not a valid entry point for the stage
+     */
+    public IEntryPoint findAndCheckEntryPoint(String name, int stage) {
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment out = arena.allocate(ADDRESS);
+            MemorySegment outDiag = arena.allocate(ADDRESS);
+            int result = io.github.refux.slang.ffi.gen.IModule.findAndCheckEntryPoint(
+                    segment(), arena.allocateFrom(name), stage, out, outDiag);
+            Diagnostics.check("IModule::findAndCheckEntryPoint", result, outDiag);
+            return new IEntryPoint(out.get(ADDRESS, 0));
+        }
+    }
+
+    /**
+     * The entry points Slang found when checking this module — functions marked
+     * {@code [shader("...")]}, and compute functions marked only {@code [numthreads]} — as
+     * caller-owned wrappers.
+     */
+    public List<IEntryPoint> getDefinedEntryPoints() {
+        int count = io.github.refux.slang.ffi.gen.IModule.getDefinedEntryPointCount(segment());
+        List<IEntryPoint> entryPoints = new ArrayList<>(count);
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment out = arena.allocate(ADDRESS);
+            for (int i = 0; i < count; i++) {
+                int result = io.github.refux.slang.ffi.gen.IModule.getDefinedEntryPoint(segment(), i, out);
+                if (!SlangNative.succeeded(result)) {
+                    entryPoints.forEach(IUnknown::close);
+                    throw new SlangException("IModule::getDefinedEntryPoint failed", result);
+                }
+                entryPoints.add(new IEntryPoint(out.get(ADDRESS, 0)));
+            }
+        }
+        return entryPoints;
+    }
+
+    /** The module's name — what an {@code import} refers to it by. */
+    public String getName() {
+        return SlangNative.readUtf8(io.github.refux.slang.ffi.gen.IModule.getName(segment()));
+    }
+
+    /** The path the module was loaded from: a found source file, or the synthetic path it was given. */
+    public String getFilePath() {
+        return SlangNative.readUtf8(io.github.refux.slang.ffi.gen.IModule.getFilePath(segment()));
+    }
+
+    /**
+     * Every file the module's compilation depended on: its own source, anything it
+     * {@code #include}s, and the source files of the modules it {@code import}s.
+     */
+    public List<String> getDependencyFilePaths() {
+        int count = io.github.refux.slang.ffi.gen.IModule.getDependencyFileCount(segment());
+        List<String> paths = new ArrayList<>(count);
+        for (int i = 0; i < count; i++) {
+            paths.add(SlangNative.readUtf8(io.github.refux.slang.ffi.gen.IModule.getDependencyFilePath(segment(), i)));
+        }
+        return paths;
     }
 
     /**

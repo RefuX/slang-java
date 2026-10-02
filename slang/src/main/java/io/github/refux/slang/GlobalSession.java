@@ -1,7 +1,10 @@
 package io.github.refux.slang;
 
 import io.github.refux.slang.ffi.IGlobalSession;
+import io.github.refux.slang.ffi.SlangNative;
+import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -52,6 +55,41 @@ public final class GlobalSession extends NativeObject {
     /** The Slang build tag of the loaded native library, e.g. {@code "2026.14.1"}. */
     public String buildTagString() {
         return ffi().getBuildTagString();
+    }
+
+    /**
+     * Looks up a capability id by name (e.g. {@code "spirv_1_5"}, {@code "SPV_KHR_ray_query"}).
+     * {@link SessionBuilder#capability(String)} takes the name directly; this is for checking one
+     * up front. Returns 0 ({@code SLANG_CAPABILITY_UNKNOWN}) for unknown names.
+     */
+    public int findCapability(String name) {
+        return ffi().findCapability(name);
+    }
+
+    /**
+     * Whether this Slang build can produce {@code target}: false when the target needs a downstream
+     * compiler that cannot be found (DXC for {@link CompileTarget#DXIL}, say).
+     */
+    public boolean isTargetSupported(CompileTarget target) {
+        return SlangNative.succeeded(ffi().checkCompileTargetSupport(target.value()));
+    }
+
+    /** Whether the downstream compiler {@code passThrough} is available to this Slang build. */
+    public boolean isPassThroughSupported(PassThrough passThrough) {
+        return SlangNative.succeeded(ffi().checkPassThroughSupport(Enums.raw(passThrough, passThrough.value())));
+    }
+
+    /**
+     * Where the library Slang would load for the downstream compiler {@code passThrough} lives,
+     * found the same way compilation finds it — e.g. the {@code slang-glslang} in the natives
+     * payload for {@link PassThrough#GLSLANG}, or the exact NVRTC that would compile CUDA.
+     *
+     * @return the path, or empty when the compiler cannot be found or is not a shared library
+     *     (executable-based compilers such as Clang, GCC or Metal)
+     */
+    public Optional<Path> downstreamCompilerPath(PassThrough passThrough) {
+        return Optional.ofNullable(ffi().getDownstreamCompilerPath(Enums.raw(passThrough, passThrough.value())))
+                .map(Path::of);
     }
 
     /**
