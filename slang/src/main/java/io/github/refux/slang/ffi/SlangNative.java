@@ -30,6 +30,14 @@ public final class SlangNative {
     public static final int SLANG_FAIL = 0x80004005;
 
     /**
+     * {@code SLANG_E_NOT_AVAILABLE} — {@code SLANG_MAKE_CORE_ERROR(7)} in slang.h, i.e. facility
+     * {@code 0x200}, code 7. Since Slang 2026.18.3, {@code slang_loadModuleInfoFromIRBlob} returns it
+     * for serialized IR in a format the build no longer reads (observed against 2026.19); garbage
+     * bytes get {@link #SLANG_FAIL} instead.
+     */
+    public static final int SLANG_E_NOT_AVAILABLE = 0x82000007;
+
+    /**
      * Reads a NUL-terminated UTF-8 C string. The segment is typically a zero-length segment read
      * from native memory, so it is first re-interpreted as unbounded; the read stops at the NUL.
      * Returns null for a NULL pointer.

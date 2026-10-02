@@ -54,7 +54,9 @@ public final class Session extends NativeObject {
      *
      * @param ir the serialized module bytes to inspect
      * @return what the IR declares: its module version, the Slang build that wrote it, and its name
-     * @throws SlangException when {@code ir} is not a readable serialized module
+     * @throws SlangException when {@code ir} is not a readable serialized module — including IR in a
+     *     serialization format this build no longer reads, which carries result
+     *     {@code SLANG_E_NOT_AVAILABLE}
      */
     public ModuleInfo moduleInfo(byte[] ir) {
         checkThread();
@@ -67,14 +69,29 @@ public final class Session extends NativeObject {
      * compatible Slang build; a mismatch throws {@link SlangCompileException}, and the caller
      * should recompile the module from source.
      *
-     * <p>Compatibility is checked before the bytes reach native code, via {@link #moduleInfo}. That
-     * check is not defensive programming: Slang <em>aborts the process</em> on IR whose module
-     * version it does not read — no exception, no diagnostic, no {@code hs_err} — so a mismatch
-     * cannot be caught after the fact.
+     * <p>Compatibility is checked before the bytes reach native code, via {@link #moduleInfo}. Slang
+     * releases before 2026.18.3 <em>abort the process</em> on IR whose module version they do not
+     * read — no exception, no diagnostic, no {@code hs_err} — so there a mismatch cannot be caught
+     * after the fact. Newer releases report it instead, and the check still gives every kind of
+     * stale IR, a retired serialization format included, the same actionable exception.
      */
     public Module loadModuleFromIr(String name, byte[] ir) {
         checkThread();
-        ModuleInfo info = session.loadModuleInfoFromIrBlob(ir);
+        ModuleInfo info;
+        try {
+            info = session.loadModuleInfoFromIrBlob(ir);
+        } catch (SlangException e) {
+            if (e.result() != SlangNative.SLANG_E_NOT_AVAILABLE) {
+                throw e;
+            }
+            // A retired serialization format (2026.18.3 stopped reading format 1) hides its metadata
+            // too, so there is no version or writer to report: only the module and the remedy.
+            throw new SlangCompileException(
+                    "cannot load serialized module '" + name + "': it was written in a serialization format"
+                            + " this build (Slang " + global.buildTagString() + ") no longer reads."
+                            + " Recompile it from source.",
+                    e.result());
+        }
         long supported = global.supportedModuleVersion();
         if (info.moduleVersion() != supported) {
             throw new SlangCompileException(
