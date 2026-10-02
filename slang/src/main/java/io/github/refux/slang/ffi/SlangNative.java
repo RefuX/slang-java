@@ -30,6 +30,13 @@ public final class SlangNative {
     public static final int SLANG_FAIL = 0x80004005;
 
     /**
+     * {@code SLANG_E_NOT_FOUND} — {@code SLANG_MAKE_CORE_ERROR(5)} in slang.h, i.e. facility
+     * {@code 0x200}, code 5: what {@code getDownstreamCompilerPath} returns when the compiler cannot
+     * be located or loaded at all.
+     */
+    public static final int SLANG_E_NOT_FOUND = 0x82000005;
+
+    /**
      * {@code SLANG_E_NOT_AVAILABLE} — {@code SLANG_MAKE_CORE_ERROR(7)} in slang.h, i.e. facility
      * {@code 0x200}, code 7. Since Slang 2026.18.3, {@code slang_loadModuleInfoFromIRBlob} returns it
      * for serialized IR in a format the build no longer reads (observed against 2026.19); garbage

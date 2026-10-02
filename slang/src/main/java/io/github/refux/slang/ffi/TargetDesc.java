@@ -55,6 +55,15 @@ public final class TargetDesc {
         io.github.refux.slang.ffi.gen.TargetDesc.setFlags(desc, flags);
     }
 
+    /**
+     * Points {@code compilerOptionEntries} at a {@link CompilerOptionEntry} array of {@code count};
+     * they override the session's entries for this target.
+     */
+    public static void setCompilerOptionEntries(MemorySegment desc, MemorySegment entryArray, int count) {
+        io.github.refux.slang.ffi.gen.TargetDesc.setCompilerOptionEntries(desc, entryArray);
+        io.github.refux.slang.ffi.gen.TargetDesc.setCompilerOptionEntryCount(desc, count);
+    }
+
     public static void setForceGlslScalarBufferLayout(MemorySegment desc, boolean force) {
         io.github.refux.slang.ffi.gen.TargetDesc.setForceGLSLScalarBufferLayout(desc, force);
     }

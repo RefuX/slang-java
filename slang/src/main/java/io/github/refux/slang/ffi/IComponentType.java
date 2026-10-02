@@ -56,6 +56,25 @@ public class IComponentType extends IUnknown {
     }
 
     /**
+     * Compiles (or fetches) target code for a whole linked component — every entry point it
+     * contains, in one artifact (e.g. one SPIR-V module, or one WGSL or Metal source file).
+     *
+     * @param targetIndex index into the session's {@code SessionDesc.targets} array
+     */
+    public byte[] getTargetCode(long targetIndex) {
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment outCode = arena.allocate(ADDRESS);
+            MemorySegment outDiag = arena.allocate(ADDRESS);
+            int result = io.github.refux.slang.ffi.gen.IComponentType.getTargetCode(
+                    segment(), targetIndex, outCode, outDiag);
+            Diagnostics.check("IComponentType::getTargetCode", result, outDiag);
+            try (ISlangBlob code = new ISlangBlob(outCode.get(ADDRESS, 0))) {
+                return code.toByteArray();
+            }
+        }
+    }
+
+    /**
      * Compiles (or fetches) target code for one entry point of a fully linked component.
      *
      * @param entryPointIndex index among the entry points composed into this component

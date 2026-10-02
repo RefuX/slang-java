@@ -1,6 +1,7 @@
 package io.github.refux.slang;
 
 import io.github.refux.slang.ffi.IModule;
+import java.util.List;
 
 /**
  * A compiled Slang module. Modules are owned by their {@link Session} — this wrapper is
@@ -24,7 +25,56 @@ public final class Module extends ComponentType {
      */
     public EntryPoint entryPoint(String name) {
         session().checkThread();
-        return new EntryPoint(session(), ((IModule) componentHandle()).findEntryPointByName(name));
+        return new EntryPoint(session(), module().findEntryPointByName(name));
+    }
+
+    /**
+     * Finds a function by name and checks it as an entry point for {@code stage} — for functions
+     * without a {@code [shader("...")]} attribute (one that has it is returned as is).
+     *
+     * @throws SlangCompileException with the compiler's diagnostics when there is no such function or
+     *     it is not a valid {@code stage} entry point
+     */
+    public EntryPoint entryPoint(String name, Stage stage) {
+        session().checkThread();
+        return new EntryPoint(session(), module().findAndCheckEntryPoint(name, Enums.raw(stage, stage.value())));
+    }
+
+    /**
+     * The entry points Slang found when checking this module, in declaration order: functions marked
+     * {@code [shader("...")]}, and compute functions marked only {@code [numthreads]}. Others need
+     * {@link #entryPoint(String, Stage)}.
+     */
+    public List<EntryPoint> entryPoints() {
+        session().checkThread();
+        return module().getDefinedEntryPoints().stream()
+                .map(entryPoint -> new EntryPoint(session(), entryPoint))
+                .toList();
+    }
+
+    /** The module's name — what an {@code import} refers to it by. */
+    public String name() {
+        session().checkThread();
+        return module().getName();
+    }
+
+    /**
+     * The path the module was loaded from: the source file {@link Session#loadModule} found, or for
+     * {@link Session#loadModuleFromSource} the synthetic {@code <name>.slang}.
+     */
+    public String filePath() {
+        session().checkThread();
+        return module().getFilePath();
+    }
+
+    /**
+     * The files this module was compiled from — its own source, everything it {@code #include}s, and
+     * the sources of the modules it {@code import}s — which is what a build system or hot-reload
+     * watcher should watch to know when to recompile it.
+     */
+    public List<String> dependencyFiles() {
+        session().checkThread();
+        return List.copyOf(module().getDependencyFilePaths());
     }
 
     /**
@@ -35,6 +85,10 @@ public final class Module extends ComponentType {
      */
     public byte[] serialize() {
         session().checkThread();
-        return ((IModule) componentHandle()).serialize();
+        return module().serialize();
+    }
+
+    private IModule module() {
+        return (IModule) componentHandle();
     }
 }

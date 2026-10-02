@@ -63,6 +63,53 @@ public final class ISession extends IUnknown {
     }
 
     /**
+     * Loads a module by the name an {@code import} would use, finding its source through the
+     * session's search paths and file system. A module already loaded under that name is returned
+     * again rather than recompiled. Borrowed, like {@link #loadModuleFromSourceString}'s result.
+     *
+     * @throws SlangCompileException with the compiler's diagnostics when the module cannot be found
+     *     or fails to compile
+     */
+    public IModule loadModule(String moduleName, Consumer<String> onDiagnostics) {
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment outDiag = arena.allocate(ADDRESS);
+            MemorySegment module = io.github.refux.slang.ffi.gen.ISession.loadModule(
+                    segment(), arena.allocateFrom(moduleName), outDiag);
+            String diagnostics = Diagnostics.consume(outDiag);
+            if (module.address() == 0) {
+                throw new SlangCompileException(
+                        diagnostics != null ? diagnostics : "module load failed: " + moduleName,
+                        SlangNative.SLANG_FAIL);
+            }
+            if (diagnostics != null && onDiagnostics != null) {
+                onDiagnostics.accept(diagnostics);
+            }
+            return new IModule(module);
+        }
+    }
+
+    /**
+     * Wraps {@code isBinaryModuleUpToDate}: whether serialized IR still matches this Slang build, this
+     * session's compiler options and the current contents of the source files it was compiled from,
+     * which are looked up relative to {@code modulePath} and on the session's search paths.
+     */
+    public boolean isBinaryModuleUpToDate(String modulePath, byte[] ir) {
+        if (ir.length == 0) {
+            return false; // not a module at all; slang_createBlob has nothing to wrap
+        }
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment irData = arena.allocate(ir.length);
+            MemorySegment.copy(ir, 0, irData, ValueLayout.JAVA_BYTE, 0, ir.length);
+            // Slang only reads the blob during the call, so the creation reference is ours to drop.
+            try (ISlangBlob blob =
+                    new ISlangBlob(io.github.refux.slang.ffi.gen.SlangAPI.slang_createBlob(irData, ir.length))) {
+                return io.github.refux.slang.ffi.gen.ISession.isBinaryModuleUpToDate(
+                        segment(), arena.allocateFrom(modulePath), blob.segment());
+            }
+        }
+    }
+
+    /**
      * Combines modules and entry points into one unit of shader code; the result (caller-owned)
      * is what gets {@link IComponentType#link() linked} and compiled. The order of components
      * determines parameter layout order.

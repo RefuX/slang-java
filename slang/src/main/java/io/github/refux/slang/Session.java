@@ -44,6 +44,43 @@ public final class Session extends NativeObject {
     }
 
     /**
+     * Loads a module by the name an {@code import} would use (e.g. {@code "lighting"}, or
+     * {@code "materials.pbr"} for {@code materials/pbr.slang}), finding its source through the
+     * session's {@link SessionBuilder#searchPath search paths} and
+     * {@link SessionBuilder#fileSystem file system}. A module already loaded under that name is
+     * returned again rather than recompiled.
+     *
+     * @throws SlangCompileException with the compiler's diagnostics when the module cannot be found
+     *     or fails to compile; success-with-warnings text goes to the
+     *     {@link SessionBuilder#onDiagnostics(java.util.function.Consumer)} consumer
+     */
+    public Module loadModule(String name) {
+        checkThread();
+        return new Module(this, session.loadModule(name, onDiagnostics));
+    }
+
+    /**
+     * Whether serialized IR is still current for this session: written by this Slang build with
+     * this session's compiler options, from source files whose contents have not changed since. A
+     * cache of {@link Module#serialize()} output can use it to decide between
+     * {@link #loadModuleFromIr} and recompiling.
+     *
+     * <p>Source files are read through this session, which keeps what it has already read: an edit
+     * made after the session read a file goes unseen, so check with a fresh session. And one case
+     * answers {@code true} without comparing the build or options: when the module's own source
+     * file cannot be found at all, Slang treats the IR as a standalone precompiled artifact.
+     * {@link #loadModuleFromIr} still refuses IR this build cannot read.
+     *
+     * @param modulePath where the serialized module lives (or would); the source files recorded in
+     *     it are looked up relative to this and on the session's search paths
+     * @param ir the serialized module bytes
+     */
+    public boolean isIrUpToDate(String modulePath, byte[] ir) {
+        checkThread();
+        return session.isBinaryModuleUpToDate(modulePath, ir);
+    }
+
+    /**
      * Reads what {@code ir} declares about itself — its serialized-module version, the Slang build
      * that wrote it, and its name — without loading it.
      *
