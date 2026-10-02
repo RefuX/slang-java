@@ -6,10 +6,13 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import io.github.refux.slang.ffi.SlangNative;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -26,6 +29,11 @@ import org.junit.jupiter.api.Test;
  * (module version 15, serialization format 1), checked in so a stale artifact is reproducible
  * without installing an old compiler. Slang 2026.18.3 retired format 1 altogether, so against the
  * pinned release it is the retired-format case: not even its metadata is readable.
+ *
+ * <p>The cross-version cases are forged instead: no released Slang writes format 2 at any module
+ * version but 32, so {@link #withModuleVersion} relabels self-serialized IR. That is enough for
+ * what is under test — Slang decides whether to load from the version field, before reading the
+ * module itself.
  */
 class ModuleIrCompatibilityTest {
 
@@ -45,6 +53,32 @@ class ModuleIrCompatibilityTest {
 
     private static Session spirvSession(GlobalSession global) {
         return global.newSession().target(CompileTarget.SPIRV).create();
+    }
+
+    /**
+     * {@code ir} relabelled as module {@code version}. The serialized metadata holds the version as
+     * one little-endian 64-bit field; it is found by patching each 8-byte run that holds the
+     * current version and asking {@link Session#moduleInfo} which patch it reports back.
+     */
+    private static byte[] withModuleVersion(Session session, byte[] ir, long version) {
+        long current = session.moduleInfo(ir).moduleVersion();
+        ByteBuffer original = ByteBuffer.wrap(ir).order(ByteOrder.LITTLE_ENDIAN);
+        for (int at = 0; at + Long.BYTES <= ir.length; at++) {
+            if (original.getLong(at) != current) {
+                continue;
+            }
+            byte[] patched = ir.clone();
+            ByteBuffer.wrap(patched).order(ByteOrder.LITTLE_ENDIAN).putLong(at, version);
+            try {
+                if (session.moduleInfo(patched).moduleVersion() == version) {
+                    return patched;
+                }
+            } catch (SlangException notTheVersionField) {
+                // These 8 bytes held something else; keep looking.
+            }
+        }
+        return fail("no 64-bit module version field in serialized IR: the metadata layout changed, so "
+                + "withModuleVersion needs another way to forge a version");
     }
 
     /** The version query reads what readable IR declares about itself, without loading it. */
@@ -104,6 +138,66 @@ class ModuleIrCompatibilityTest {
                     .serialize();
 
             assertNotNull(session.loadModuleFromIr("reloaded", ir));
+        }
+    }
+
+    /**
+     * Which versions load is Slang's call, not the binding's: a version older than the one this
+     * build writes loads when Slang still reads it. Against the pinned 2026.19, which writes 32 and
+     * reads 31 through 32, that is version 31 — which the exact-version check refused before.
+     */
+    @Test
+    void olderModuleVersionSlangStillReadsLoads() {
+        try (GlobalSession global = Slang.createGlobalSession();
+                Session session = spirvSession(global)) {
+            byte[] ir = session.loadModuleFromSource("round_trip_probe", PROBE_SOURCE)
+                    .serialize();
+            byte[] older = withModuleVersion(session, ir, global.supportedModuleVersion() - 1);
+
+            assertNotNull(session.loadModuleFromIr("older", older));
+        }
+    }
+
+    /**
+     * A version Slang does not read — newer than this build, or older than its range — is refused
+     * as an exception that says what to do, never an abort.
+     */
+    @Test
+    void moduleVersionSlangDoesNotReadThrows() {
+        try (GlobalSession global = Slang.createGlobalSession();
+                Session session = spirvSession(global)) {
+            byte[] ir = session.loadModuleFromSource("round_trip_probe", PROBE_SOURCE)
+                    .serialize();
+
+            for (long version : new long[] {global.supportedModuleVersion() + 1, 1}) {
+                byte[] forged = withModuleVersion(session, ir, version);
+
+                SlangCompileException thrown =
+                        assertThrows(SlangCompileException.class, () -> session.loadModuleFromIr("forged", forged));
+
+                assertTrue(thrown.getMessage().contains("round_trip_probe"), thrown.getMessage());
+                assertTrue(thrown.getMessage().contains("module version " + version), thrown.getMessage());
+                assertTrue(thrown.getMessage().contains("Recompile it from source"), thrown.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Deferring to Slang is only safe where Slang reports what it cannot read, which the build tag
+     * decides; anything that is not a release number must fall back to the exact-version check.
+     */
+    @Test
+    void onlyTrustsReleasesThatReportUnreadableIr() {
+        for (String tag : new String[] {"2026.18.3", "2026.19", "v2026.19", "2026.19-12-gdeadbee", "2027.1"}) {
+            assertTrue(GlobalSession.releasedAtLeast(tag, 2026, 18, 3), tag);
+        }
+        for (String tag : new String[] {"2026.18.2", "2026.18", "2026.9", "2025.30", "0.0.0-unknown", "unknown", ""}) {
+            assertFalse(GlobalSession.releasedAtLeast(tag, 2026, 18, 3), tag);
+        }
+        assertFalse(GlobalSession.releasedAtLeast(null, 2026, 18, 3));
+
+        try (GlobalSession global = Slang.createGlobalSession()) {
+            assertTrue(global.validatesModuleIrOnLoad(), "the pinned release reports unreadable IR");
         }
     }
 

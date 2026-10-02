@@ -65,15 +65,18 @@ public final class Session extends NativeObject {
 
     /**
      * Loads a module from {@link Module#serialize() serialized} checked IR, skipping parse and
-     * type-check. Other modules {@code import} it by {@code name}. The IR is only readable by a
-     * compatible Slang build; a mismatch throws {@link SlangCompileException}, and the caller
-     * should recompile the module from source.
+     * type-check. Other modules {@code import} it by {@code name}. Serialized IR is tied to the
+     * Slang that wrote it — a build reads only a range of module versions — and IR this build
+     * cannot read throws {@link SlangCompileException}, after which the caller should recompile
+     * the module from source.
      *
-     * <p>Compatibility is checked before the bytes reach native code, via {@link #moduleInfo}. Slang
-     * releases before 2026.18.3 <em>abort the process</em> on IR whose module version they do not
-     * read — no exception, no diagnostic, no {@code hs_err} — so there a mismatch cannot be caught
-     * after the fact. Newer releases report it instead, and the check still gives every kind of
-     * stale IR, a retired serialization format included, the same actionable exception.
+     * <p>Which versions load is Slang's call. Since 2026.18.3 Slang checks a module's format and
+     * version before deserializing it and reports what it cannot read, so any version it accepts
+     * loads, including versions older than the one it writes. Releases before that <em>abort the
+     * process</em> on IR whose module version they do not read — no exception, no diagnostic, no
+     * {@code hs_err} — so against those only {@link GlobalSession#supportedModuleVersion()} is let
+     * through to native code. Either way the IR's metadata is read first ({@link #moduleInfo}), so a
+     * serialization format the build no longer reads fails with the same actionable exception.
      */
     public Module loadModuleFromIr(String name, byte[] ir) {
         checkThread();
@@ -92,16 +95,30 @@ public final class Session extends NativeObject {
                             + " Recompile it from source.",
                     e.result());
         }
-        long supported = global.supportedModuleVersion();
-        if (info.moduleVersion() != supported) {
+        long written = global.supportedModuleVersion();
+        if (info.moduleVersion() != written && !global.validatesModuleIrOnLoad()) {
             throw new SlangCompileException(
                     "cannot load serialized module '" + info.name() + "': it is module version "
                             + info.moduleVersion() + ", written by Slang " + info.compilerVersion()
                             + ", but this build (Slang " + global.buildTagString() + ") reads module version "
-                            + supported + ". Recompile it from source.",
+                            + written + ". Recompile it from source.",
                     SlangNative.SLANG_FAIL);
         }
-        return new Module(this, session.loadModuleFromIrBlob(name, name + ".slang-module", ir));
+        try {
+            return new Module(this, session.loadModuleFromIrBlob(name, name + ".slang-module", ir));
+        } catch (SlangCompileException e) {
+            if (info.moduleVersion() == written) {
+                throw e; // not a cross-version load, so Slang's diagnostics say it all
+            }
+            // Slang refused IR from another version (E00130), or failed on it for some other reason;
+            // either way the remedy is the same, and its own diagnostics follow.
+            throw new SlangCompileException(
+                    "cannot load serialized module '" + info.name() + "': it is module version "
+                            + info.moduleVersion() + ", written by Slang " + info.compilerVersion()
+                            + ", and this build (Slang " + global.buildTagString() + ") writes module version "
+                            + written + ". Recompile it from source.\n" + e.getMessage(),
+                    e.result());
+        }
     }
 
     /**

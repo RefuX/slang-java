@@ -1,6 +1,9 @@
 package io.github.refux.slang;
 
 import io.github.refux.slang.ffi.IGlobalSession;
+import java.util.Arrays;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * The process-level Slang compiler instance ({@code slang::IGlobalSession}): the factory for
@@ -52,17 +55,15 @@ public final class GlobalSession extends NativeObject {
     }
 
     /**
-     * The serialized-module version this Slang build writes — and therefore one it reads. IR whose
-     * {@link ModuleInfo#moduleVersion()} equals this loads; {@link Session#loadModuleFromIr} checks
-     * exactly that before handing bytes to native code.
+     * The serialized-module version this Slang build writes — and therefore one it certainly reads.
      *
-     * <p>Note this is the version written, which may be narrower than the set read: a build might
-     * also accept older versions. Slang knows the real range — {@code slangc
-     * -get-supported-module-versions} prints it — but exports no API to ask, so a binding cannot
-     * read it. The written version is the one value that is certainly readable, so it is used as a
-     * conservative test: the cost of rejecting IR that would in fact have loaded is recompiling it
-     * from source, whereas the cost of accepting IR that would not is the process aborting with no
-     * diagnostic.
+     * <p>A build may read a range of versions, of which this is only the newest. Slang knows the
+     * real range — {@code slangc -get-supported-module-versions} prints it — but exports no API to
+     * ask. Since 2026.18.3 that does not matter: Slang checks the version itself on load, and
+     * {@link Session#loadModuleFromIr} defers to it. Against older releases, which abort the process
+     * on IR they cannot read, {@link Session#loadModuleFromIr} lets only this version through: the
+     * cost of rejecting IR that would in fact have loaded is recompiling it from source, whereas the
+     * cost of accepting IR that would not is the process aborting with no diagnostic.
      *
      * <p>Observed once, by compiling a trivial module and reading back what it serialized to; the
      * result is cached for the life of this global session.
@@ -84,6 +85,34 @@ public final class GlobalSession extends NativeObject {
             }
             return supportedModuleVersion;
         }
+    }
+
+    /**
+     * Whether this library checks a serialized module's format and version before deserializing
+     * it, reporting IR it cannot read as an error. Slang does from 2026.18.3 (upstream #12905);
+     * older releases abort the process instead. Read from the build tag, so a build whose tag is no
+     * release number (a local build without git tags, say) counts as an older one.
+     */
+    boolean validatesModuleIrOnLoad() {
+        return releasedAtLeast(buildTagString(), 2026, 18, 3);
+    }
+
+    // Release tags are year.release[.patch]; a local build appends git-describe noise
+    // ("2026.19-12-gdeadbee"). Bounded digits keep parseInt from overflowing on junk.
+    private static final Pattern RELEASE_TAG = Pattern.compile("v?(\\d{1,9})\\.(\\d{1,9})(?:\\.(\\d{1,9}))?.*");
+
+    /** Whether {@code buildTag} names release {@code year.release.patch} or later; false if no release. */
+    static boolean releasedAtLeast(String buildTag, int year, int release, int patch) {
+        Matcher tag = RELEASE_TAG.matcher(buildTag == null ? "" : buildTag);
+        if (!tag.matches()) {
+            return false;
+        }
+        int[] named = {
+            Integer.parseInt(tag.group(1)),
+            Integer.parseInt(tag.group(2)),
+            tag.group(3) == null ? 0 : Integer.parseInt(tag.group(3))
+        };
+        return Arrays.compare(named, new int[] {year, release, patch}) >= 0;
     }
 
     /** Aliveness-checked access for package internals and ffi-layer interop. */
