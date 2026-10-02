@@ -24,6 +24,7 @@ Usage (from the repo root; see CLAUDE.md for the one-line regen command):
 """
 
 import argparse
+import ctypes
 import glob
 import json
 import os
@@ -408,24 +409,55 @@ def resolve_vtables(interfaces):
         info["vtableSize"] = start + len(info["methods"])
 
 
+CXEVAL_INT = 1  # Index.h CXEvalResultKind::CXEval_Int
+_evaluator = None
+
+
+def evaluator():
+    """libclang's constant evaluator (Index.h: clang_Cursor_Evaluate and clang_EvalResult_*),
+    which clang.cindex does not wrap. Bound on first use rather than at import, so importing this
+    module never touches libclang -- test_abi_lock.py imports it with clang stubbed out."""
+    global _evaluator
+    if _evaluator is None:
+        lib = ci.conf.lib
+        for name, argtypes, restype in (
+                ("clang_Cursor_Evaluate", [ci.Cursor], ctypes.c_void_p),
+                ("clang_EvalResult_getKind", [ctypes.c_void_p], ctypes.c_int),
+                ("clang_EvalResult_isUnsignedInt", [ctypes.c_void_p], ctypes.c_uint),
+                ("clang_EvalResult_getAsUnsigned", [ctypes.c_void_p], ctypes.c_ulonglong),
+                ("clang_EvalResult_getAsLongLong", [ctypes.c_void_p], ctypes.c_longlong),
+                ("clang_EvalResult_dispose", [ctypes.c_void_p], None)):
+            fn = getattr(lib, name)
+            fn.argtypes, fn.restype = argtypes, restype
+        _evaluator = lib
+    return _evaluator
+
+
 def const_var_value(cursor):
-    """Value of a global integer constant VarDecl: either a literal initializer or a reference
-    to an enum constant. Returns None for anything else (non-integers, complex expressions)."""
+    """Value of a global integer constant VarDecl, folded by clang itself. Returns None for
+    anything else (non-integers, or an initializer clang cannot fold to an integer).
+
+    Folding is clang's job, not ours: this used to return the first integer literal in the
+    initializer's AST, which read Slang 2026.16.1's `kUnboundedSyntheticResourceArraySize =
+    ~uint32_t(0)` as 0 -- a wrong constant the lock would then have frozen."""
     try:
         if vocab(cursor.type)["k"] not in (
                 "i8", "u8", "i16", "u16", "i32", "u32", "i64", "u64", "enum"):
             return None
     except SystemExit:
         return None
-    for node in cursor.walk_preorder():
-        if node.kind == CK.DECL_REF_EXPR and node.referenced is not None \
-                and node.referenced.kind == CK.ENUM_CONSTANT_DECL:
-            return node.referenced.enum_value
-        if node.kind == CK.INTEGER_LITERAL:
-            tokens = [t.spelling for t in node.get_tokens()]
-            if tokens:
-                return int(tokens[0].rstrip("uUlL"), 0)
-    return None
+    lib = evaluator()
+    result = lib.clang_Cursor_Evaluate(cursor)
+    if not result:
+        return None
+    try:
+        if lib.clang_EvalResult_getKind(result) != CXEVAL_INT:
+            return None
+        if lib.clang_EvalResult_isUnsignedInt(result):
+            return lib.clang_EvalResult_getAsUnsigned(result)
+        return lib.clang_EvalResult_getAsLongLong(result)
+    finally:
+        lib.clang_EvalResult_dispose(result)
 
 
 def extract_wrapper_calls(cursor, name, methods):

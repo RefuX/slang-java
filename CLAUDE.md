@@ -47,6 +47,8 @@ walkthrough as its acceptance test, and Java-implemented COM upcalls serving imp
   an append moves them by construction — and everything else byte-exact. `python3
   bindgen/extract/test_abi_lock.py` covers that arithmetic and needs no libclang; run it after
   touching `extract_api.py`, and read the `SENTINEL_NAME` comment before widening the rule.
+  `bindgen/extract/test_const_eval.py` (venv python, needs libclang) covers global-constant
+  folding, which a wrong value would otherwise get frozen into the lock.
 - ABI-drift canary: `.github/workflows/abi-canary.yml` runs weekly, parsing Slang upstream
   headers and enforcing the committed lock (`extract_api.py --verify`, which checks the lock
   without rewriting it). A non-append change fails the run; benign additions are reported. Run
