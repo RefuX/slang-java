@@ -58,8 +58,9 @@ walkthrough as its acceptance test, and Java-implemented COM upcalls serving imp
   it on demand from the Actions tab (workflow_dispatch, optional `ref` input).
 - Release watch: `.github/workflows/slang-release-watch.yml` runs weekly and files one tracking
   issue when upstream ships a release newer than the `slangVersion` pin — the gap the canary
-  never covered, since the canary only speaks when the ABI *breaks*. It stays quiet once a bump
-  branch or an open issue exists, so a stale pin never nags. Dispatch it with `mode: bump` to run
+  never covered, since the canary only speaks when the ABI *breaks*. A stale pin keeps one open
+  issue, retitled (not re-filed) as newer releases ship, and a bump branch for the latest release
+  silences it. Dispatch it with `mode: bump` to run
   the bump workflow from it; that path is off on the schedule until the reusable-workflow
   permission chain has been proven by one real run (rationale in the workflow header).
 - Verify hand-written struct layouts: `tools/abi-probe.cpp` (build/run instructions in its header)
