@@ -15,20 +15,25 @@ directly. Windows, macOS, and Linux, on x86_64 and aarch64. Requires JDK 25+.
 
 | Artifact                                               | Purpose |
 |--------------------------------------------------------|---|
-| `io.github.refux:slang-java:0.0.9`                     | The library: compiler API, reflection, Java file systems |
-| `io.github.refux:slang-java-natives:0.0.9:<os>-<arch>` | The official Slang binaries, as one classifier per platform: `windows`, `linux`, or `macos` × `x86_64` or `aarch64` |
+| `io.github.refux:slang-java:0.0.10`                     | The library: compiler API, reflection, Java file systems |
+| `io.github.refux:slang-java-natives:0.0.10:<os>-<arch>` | The official Slang binaries, as one classifier per platform: `windows`, `linux`, or `macos` × `x86_64` or `aarch64` |
 
 The library version tracks slang-java's own API, not Slang's. To see which Slang release a jar
 binds, read its manifest — no resolving, no running:
 
 ```bash
-unzip -p slang-java-0.0.9.jar META-INF/MANIFEST.MF
+unzip -p slang-java-0.0.10.jar META-INF/MANIFEST.MF
 ```
 
 `Slang-Version` there is a **floor**, not a lockstep: it names the release the bindings were
 generated against, and any newer Slang works, because Slang's public ABI is append-only. The same
 value is available at runtime as `SlangLibrary.PINNED_SLANG_VERSION`, alongside
 `GlobalSession.buildTagString()` for the library actually loaded.
+
+Serialized modules (`Module.serialize()`) are versioned separately and more narrowly: each Slang
+release reads only a small range of module versions, so treat them as a cache tied to the release
+that wrote them. `Session.loadModuleFromIr` throws a `SlangCompileException` for anything the
+loaded Slang cannot read, and `Session.moduleInfo` tells you up front which version a blob is.
 
 ## Getting started
 
@@ -46,8 +51,8 @@ val slangNatives = "${
 }-${if (System.getProperty("os.arch") in listOf("aarch64", "arm64")) "aarch64" else "x86_64"}"
 
 dependencies {
-    implementation("io.github.refux:slang-java:0.0.9")
-    runtimeOnly("io.github.refux:slang-java-natives:0.0.9:$slangNatives")
+    implementation("io.github.refux:slang-java:0.0.10")
+    runtimeOnly("io.github.refux:slang-java-natives:0.0.10:$slangNatives")
 }
 
 tasks.withType<JavaExec> {
@@ -60,10 +65,10 @@ classpath together and the loader picks the host's at runtime (LWJGL-style):
 
 ```kotlin
 dependencies {
-    implementation("io.github.refux:slang-java:0.0.9")
-    runtimeOnly("io.github.refux:slang-java-natives:0.0.9:macos-aarch64")
-    runtimeOnly("io.github.refux:slang-java-natives:0.0.9:windows-x86_64")
-    runtimeOnly("io.github.refux:slang-java-natives:0.0.9:linux-x86_64")
+    implementation("io.github.refux:slang-java:0.0.10")
+    runtimeOnly("io.github.refux:slang-java-natives:0.0.10:macos-aarch64")
+    runtimeOnly("io.github.refux:slang-java-natives:0.0.10:windows-x86_64")
+    runtimeOnly("io.github.refux:slang-java-natives:0.0.10:linux-x86_64")
 }
 ```
 

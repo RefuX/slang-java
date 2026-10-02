@@ -54,7 +54,9 @@ public final class Session extends NativeObject {
      *
      * @param ir the serialized module bytes to inspect
      * @return what the IR declares: its module version, the Slang build that wrote it, and its name
-     * @throws SlangException when {@code ir} is not a readable serialized module
+     * @throws SlangException when {@code ir} is not a readable serialized module — including IR in a
+     *     serialization format this build no longer reads, which carries result
+     *     {@code SLANG_E_NOT_AVAILABLE}
      */
     public ModuleInfo moduleInfo(byte[] ir) {
         checkThread();
@@ -63,28 +65,60 @@ public final class Session extends NativeObject {
 
     /**
      * Loads a module from {@link Module#serialize() serialized} checked IR, skipping parse and
-     * type-check. Other modules {@code import} it by {@code name}. The IR is only readable by a
-     * compatible Slang build; a mismatch throws {@link SlangCompileException}, and the caller
-     * should recompile the module from source.
+     * type-check. Other modules {@code import} it by {@code name}. Serialized IR is tied to the
+     * Slang that wrote it — a build reads only a range of module versions — and IR this build
+     * cannot read throws {@link SlangCompileException}, after which the caller should recompile
+     * the module from source.
      *
-     * <p>Compatibility is checked before the bytes reach native code, via {@link #moduleInfo}. That
-     * check is not defensive programming: Slang <em>aborts the process</em> on IR whose module
-     * version it does not read — no exception, no diagnostic, no {@code hs_err} — so a mismatch
-     * cannot be caught after the fact.
+     * <p>Which versions load is Slang's call. Since 2026.18.3 Slang checks a module's format and
+     * version before deserializing it and reports what it cannot read, so any version it accepts
+     * loads, including versions older than the one it writes. Releases before that <em>abort the
+     * process</em> on IR whose module version they do not read — no exception, no diagnostic, no
+     * {@code hs_err} — so against those only {@link GlobalSession#supportedModuleVersion()} is let
+     * through to native code. Either way the IR's metadata is read first ({@link #moduleInfo}), so a
+     * serialization format the build no longer reads fails with the same actionable exception.
      */
     public Module loadModuleFromIr(String name, byte[] ir) {
         checkThread();
-        ModuleInfo info = session.loadModuleInfoFromIrBlob(ir);
-        long supported = global.supportedModuleVersion();
-        if (info.moduleVersion() != supported) {
+        ModuleInfo info;
+        try {
+            info = session.loadModuleInfoFromIrBlob(ir);
+        } catch (SlangException e) {
+            if (e.result() != SlangNative.SLANG_E_NOT_AVAILABLE) {
+                throw e;
+            }
+            // A retired serialization format (2026.18.3 stopped reading format 1) hides its metadata
+            // too, so there is no version or writer to report: only the module and the remedy.
+            throw new SlangCompileException(
+                    "cannot load serialized module '" + name + "': it was written in a serialization format"
+                            + " this build (Slang " + global.buildTagString() + ") no longer reads."
+                            + " Recompile it from source.",
+                    e.result());
+        }
+        long written = global.supportedModuleVersion();
+        if (info.moduleVersion() != written && !global.validatesModuleIrOnLoad()) {
             throw new SlangCompileException(
                     "cannot load serialized module '" + info.name() + "': it is module version "
                             + info.moduleVersion() + ", written by Slang " + info.compilerVersion()
                             + ", but this build (Slang " + global.buildTagString() + ") reads module version "
-                            + supported + ". Recompile it from source.",
+                            + written + ". Recompile it from source.",
                     SlangNative.SLANG_FAIL);
         }
-        return new Module(this, session.loadModuleFromIrBlob(name, name + ".slang-module", ir));
+        try {
+            return new Module(this, session.loadModuleFromIrBlob(name, name + ".slang-module", ir));
+        } catch (SlangCompileException e) {
+            if (info.moduleVersion() == written) {
+                throw e; // not a cross-version load, so Slang's diagnostics say it all
+            }
+            // Slang refused IR from another version (E00130), or failed on it for some other reason;
+            // either way the remedy is the same, and its own diagnostics follow.
+            throw new SlangCompileException(
+                    "cannot load serialized module '" + info.name() + "': it is module version "
+                            + info.moduleVersion() + ", written by Slang " + info.compilerVersion()
+                            + ", and this build (Slang " + global.buildTagString() + ") writes module version "
+                            + written + ". Recompile it from source.\n" + e.getMessage(),
+                    e.result());
+        }
     }
 
     /**

@@ -23,6 +23,9 @@ jobs:
         with:
           python-version: "3.12"
       - run: python bindgen/extract/test_abi_lock.py
+      # Constant folding is clang's own, so this one needs a real libclang: the bindings come from
+      # the wheel, and configure_libclang() picks up the runner image's LLVM as it would locally.
+      - run: pip install libclang==18.1.1 && python bindgen/extract/test_const_eval.py
 
   smoke:
     name: smoke (${{ matrix.platform }})
