@@ -42,7 +42,10 @@ walkthrough as its acceptance test, and Java-implemented COM upcalls serving imp
   2. `./gradlew :bindgen:run --args="api/slang-api.json slang/src/main/java"`
   One-time venv setup: `python3 -m venv bindgen/extract/.venv && bindgen/extract/.venv/bin/pip install libclang`.
   `api/slang-abi.lock` is append-only ABI enforcement; `--reset-lock` is only for lock-format
-  migrations and must be justified in the commit message. Struct sizes and derived count
+  migrations, or — with James's go-ahead — for rebasing onto a break upstream has already
+  shipped (2026.17 repurposed `IGlobalSession` slot 32; see the 2026.19 bump commit). Either way,
+  justify it in the commit message and list every lock line it drops. The bump workflow never
+  resets, so a bump across an upstream break is done by hand. Struct sizes and derived count
   sentinels (`CountOf`, `SLANG_STAGE_COUNT`, …) are locked monotonically — they may grow, since
   an append moves them by construction — and everything else byte-exact. `python3
   bindgen/extract/test_abi_lock.py` covers that arithmetic and needs no libclang; run it after

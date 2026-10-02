@@ -139,6 +139,26 @@
    ]
   },
   {
+   "name": "BitfieldPackingRules",
+   "repr": {
+    "k": "i32"
+   },
+   "values": [
+    {
+     "name": "Default",
+     "value": 0
+    },
+    {
+     "name": "MSVC",
+     "value": 1
+    },
+    {
+     "name": "LegacyMSBFirstMSVC",
+     "value": 2
+    }
+   ]
+  },
+  {
    "name": "BuiltinModuleName",
    "repr": {
     "k": "i32"
@@ -773,10 +793,6 @@
      "value": 152
     },
     {
-     "name": "CompilerVersion",
-     "value": 153
-    },
-    {
      "name": "SPIRVUnifiedDescriptorHeapStride",
      "value": 154
     },
@@ -793,9 +809,21 @@
      "value": 157
     },
     {
+     "name": "TraceCoverageBindlessIndex",
+     "value": 158
+    },
+    {
+     "name": "GetCompilerPath",
+     "value": 159
+    },
+    {
+     "name": "BitfieldPackingRules",
+     "value": 160
+    },
+    {
      "derived": true,
      "name": "CountOf",
-     "value": 158
+     "value": 161
     }
    ]
   },
@@ -2190,6 +2218,11 @@
     },
     {
      "name": "kInvalidCoverageCounterIndex",
+     "value": 4294967295
+    },
+    {
+     "doc": "`SyntheticResourceInfo::arraySize` when the synthetic resource is an\nunbounded (runtime-sized) descriptor array, so the compiler cannot\nknow how many descriptors the host will supply.\n\nSpelled the same way as `SLANG_UNBOUNDED_SIZE` (`~size_t(0)`) rather\nthan casting it down: both mean \"every bit set\" in their respective\nwidths, but narrowing the 64-bit macro to 32 bits is a truncating\nconversion that MSVC rejects under warnings-as-errors (C4310).",
+     "name": "kUnboundedSyntheticResourceArraySize",
      "value": 4294967295
     }
    ]
@@ -4714,6 +4747,24 @@
    ],
    "ret": {
     "k": "u32"
+   }
+  },
+  {
+   "doc": "Get the variable layout for the \"content\" of a container-like type layout.\n\nThe \"content\" is what a container holds, as opposed to the container (\"wrapper\") itself: the\nsingle element for a constant buffer / parameter block / texture buffer, and the sequence of\nelements for a structured buffer. For a constant buffer / parameter block / texture buffer\nthis returns the element variable layout, whose offsets are relative to the container (they\naccount for the container's own resource usage). For a structured buffer this returns a\nvariable layout over an (unbounded) array of the element type at offset zero, so element\nstride and element type can be queried through the normal array-layout accessors. Returns\nnull for type layouts that are not container-like.",
+   "group": "reflection",
+   "name": "spReflectionTypeLayout_GetContentVarLayout",
+   "params": [
+    {
+     "name": "type",
+     "type": {
+      "k": "ptr",
+      "to": "SlangReflectionTypeLayout"
+     }
+    }
+   ],
+   "ret": {
+    "k": "ptr",
+    "to": "SlangReflectionVariableLayout"
    }
   },
   {
@@ -8253,7 +8304,7 @@
    "experimental": false,
    "methods": [
     {
-     "doc": "Number of runtime counter slots in the synthesized coverage\nbuffer. This can differ from `getEntryCount()` once a coverage\nmode has counterless metadata entries, shares one counter across\nseveral source entries, or reports entries whose counts are\nderived from other counters.",
+     "doc": "Number of runtime counter slots in the synthesized coverage\nbuffer. Never larger than `getEntryCount()`, and smaller when\nline coverage shares one counter across the source entries of a\nstraight-line region. Function and branch entries always take a\ndedicated counter, so the two counts are equal for a compile that\nenables only those modes, or for line coverage where every marker\nlands in its own basic block. Size the counter readback buffer\nfrom this value, never from the entry count.",
      "name": "getCounterCount",
      "params": [],
      "ret": {
@@ -8302,7 +8353,7 @@
      "slot": 6
     },
     {
-     "doc": "Number of source coverage entries available through\n`getEntryInfo`. The current line/function/branch producers have\none entry per counter, but future source-region coverage may\nexpose entries that do not map one-to-one with runtime counter\nslots.",
+     "doc": "Number of source coverage entries available through\n`getEntryInfo`. Every coverage marker produces one entry, so\nthis is NOT the number of runtime counters: several entries may\nname the same `counterIndex`. Use `getCounterCount()` to size\nthe readback buffer.",
      "name": "getEntryCount",
      "params": [],
      "ret": {
@@ -9047,8 +9098,8 @@
      "slot": 31
     },
     {
-     "doc": "Get the version of the downstream/pass-through compiler that Slang will actually load and\nuse for `passThrough`, applying the same lazy discovery and library search order used during\ncompilation. This lets a client key its behavior off the exact library Slang selected (for\nexample, the specific NVRTC that will compile CUDA), which can differ from a version the client\nmight discover on its own.\n\nThis is not a cheap accessor: the first call for a given `passThrough` performs discovery and\nloads the downstream library into the process (then memoizes it for subsequent calls).\n\nOnly some downstream compilers report a numeric version (e.g. NVRTC, DXC, the C/C++ toolchains);\nothers (e.g. the glslang family and Tint) always report `(0,0)`. The version is read uniformly\nfrom the loaded compiler's descriptor, so a versionless-but-loaded compiler still returns\nSLANG_OK with major/minor 0 - which the result alone does not distinguish from a genuine 0.0.\n@param passThrough The downstream compiler to query (e.g. SLANG_PASS_THROUGH_NVRTC).\n@param outMajor Receives the major version number. May be null.\n@param outMinor Receives the minor version number. May be null.\n@return SLANG_OK if the compiler was located and loaded (see the versionless note above).\nSLANG_E_NOT_FOUND if the compiler could not be located or loaded, and likewise for\nSLANG_PASS_THROUGH_NONE or an out-of-range value - the result code alone does not distinguish an\ninvalid argument from a compiler that is simply not installed.",
-     "name": "getDownstreamCompilerVersion",
+     "doc": "Get the on-disk path of the downstream/pass-through compiler that Slang will actually load\nand use for `passThrough`, applying the same lazy discovery and library search order used\nduring compilation. This lets a client locate the exact library Slang selected - for example,\nthe specific NVRTC that will compile CUDA - and load it itself to query capabilities (such as\nthe supported architectures) directly.\n\nThis is not a cheap accessor: the first call for a given `passThrough` performs discovery and\nloads the downstream library into the process (then memoizes it for subsequent calls).\n\nThe path is recovered from the loaded shared library, so it is available for the shared-library\npass-throughs (e.g. NVRTC, DXC, FXC, glslang). A pass-through backed by an executable located\non `PATH` (e.g. Clang/GCC/VS) or a target without shared-library introspection (e.g. WASM) has\nno such path and returns SLANG_E_NOT_AVAILABLE, which the client must keep distinct from\nSLANG_E_NOT_FOUND (the compiler was not located at all).\n@param passThrough The downstream compiler to query (e.g. SLANG_PASS_THROUGH_NVRTC).\n@param outPath Must be non-null. On SLANG_OK receives the resolved library path as a blob; left\nuntouched on any failure return.\n@return SLANG_OK if the compiler was located, loaded, and its path recovered.\nSLANG_E_NOT_FOUND if the compiler could not be located or loaded (and likewise for\nSLANG_PASS_THROUGH_NONE or an out-of-range value). SLANG_E_NOT_AVAILABLE if the compiler was\nloaded but has no recoverable on-disk path -- it is not backed by a shared library (an\nexecutable-based command-line compiler such as Clang/GCC/VS, or Metal) or the platform has no\nshared-library introspection (e.g. WASM).",
+     "name": "getDownstreamCompilerPath",
      "params": [
       {
        "name": "passThrough",
@@ -9061,17 +9112,10 @@
        }
       },
       {
-       "name": "outMajor",
+       "name": "outPath",
        "type": {
         "k": "ptr",
-        "to": "int"
-       }
-      },
-      {
-       "name": "outMinor",
-       "type": {
-        "k": "ptr",
-        "to": "int"
+        "to": "ISlangBlob *"
        }
       }
      ],
@@ -9511,7 +9555,7 @@
      "slot": 4
     },
     {
-     "doc": "Load a module from Slang source code.",
+     "doc": "Load a module from Slang source code.\n\nIf `source` is null and `path` names a readable file, the module is\nloaded from that file's contents. If `source` is null and `path` cannot\nbe read, the call returns null and (when `outDiagnostics` is provided)\nwrites a `CannotOpenFile` diagnostic.",
      "name": "loadModuleFromSource",
      "params": [
       {
@@ -11357,6 +11401,11 @@
    "method": "getContainerVarLayout"
   },
   {
+   "callee": "spReflectionTypeLayout_GetContentVarLayout",
+   "class": "TypeLayoutReflection",
+   "method": "getContentVarLayout"
+  },
+  {
    "callee": "spReflectionTypeLayout_getDescriptorSetCount",
    "class": "TypeLayoutReflection",
    "method": "getDescriptorSetCount"
@@ -11727,7 +11776,7 @@
    "method": "hasDefaultValue"
   }
  ],
- "slangVersion": "2026.16",
+ "slangVersion": "2026.19",
  "structs": [
   {
    "align": 4,
@@ -12159,7 +12208,7 @@
      }
     },
     {
-     "doc": "Counter slot used by this entry, or\n`kInvalidCoverageCounterIndex` when the entry has no runtime\ncounter. The current line/function/branch producers use one\ndirect counter per entry. Future source-region coverage may use\n`kInvalidCoverageCounterIndex` for entries whose count is\nderived from other counters or represented through tail-extended\nfields.",
+     "doc": "Counter slot used by this entry, or\n`kInvalidCoverageCounterIndex` when the entry has no runtime\ncounter.\n\nThis is NOT unique per entry. Line coverage coalesces entries\nthat provably execute together (those in one basic block with\nnothing between them that can abandon the invocation) onto a\nsingle counter, which is what keeps instrumented shader code\nsmall. Several entries therefore report the same\n`counterIndex`, and `getCounterCount()` is correspondingly\nsmaller than the entry count.\n\nRead results per entry (`counters[entry.counterIndex]` for each\nentry), never per counter: a counter does not identify one\nsource location. Sizing a readback buffer from the entry count\nrather than the counter count is a bug.\n\nFunction and branch entries always use a dedicated counter.\nFuture coverage modes may use `kInvalidCoverageCounterIndex`\nfor entries whose count is derived from other counters or\nrepresented through tail-extended fields.",
      "name": "counterIndex",
      "offset": 20,
      "type": {
@@ -12623,7 +12672,7 @@
      }
     },
     {
-     "doc": "Number of logical resources in the synthetic binding. Most\ncurrent instrumentation resources are scalar (`1`).",
+     "doc": "Number of logical resources in the synthetic binding. Most\ninstrumentation resources are scalar (`1`).\n\n`kUnboundedSyntheticResourceArraySize` when the resource is an\nunbounded descriptor array whose descriptor count is a host\nruntime decision the compiler cannot see -- the coverage buffer\nunder `-trace-coverage-bindless-index` is declared this way\ndeliberately, so that a shader does not constrain how many\nshaders the host binds alongside it. A host sizing a descriptor\narray must not read this as a count.\n\nFor coverage, this sentinel and `bindlessIndex >= 0` are set\ntogether and always agree, so testing either one identifies the\nbindless form. They are separate fields because they answer\ndifferent questions -- `arraySize` describes the binding's shape\nfor any synthetic resource, while `bindlessIndex` says which\nelement this shader uses -- and a future synthetic resource\ncould be an unbounded array without having a per-shader index.",
      "name": "arraySize",
      "offset": 16,
      "type": {
@@ -12701,10 +12750,18 @@
       "k": "ptr",
       "to": "const char"
      }
+    },
+    {
+     "doc": "Index of this shader's element within the synthetic resource's\ndescriptor array, or `-1` when the resource is bound as a single\ndescriptor rather than as an element of an array.\n\nCoverage sets this from `-trace-coverage-bindless-index`. In that\nform `__slang_coverage` is an unbounded array of buffers, so a\nsingle `(space, binding)` serves every shader in a pipeline and\neach shader accesses `__slang_coverage[bindlessIndex]`. Reading it\nback here saves a host from having to track the value it passed at\ncompile time in order to report on the result.\n\nThis field is past the v1 struct size, so it is only written when\nthe caller's `structSize` covers it. A caller compiled against an\nolder header keeps its own struct layout and never sees it.",
+     "name": "bindlessIndex",
+     "offset": 56,
+     "type": {
+      "k": "i32"
+     }
     }
    ],
    "name": "SyntheticResourceInfo",
-   "size": 56
+   "size": 64
   },
   {
    "align": 8,
