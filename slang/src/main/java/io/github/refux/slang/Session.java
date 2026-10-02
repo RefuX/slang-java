@@ -46,8 +46,8 @@ public final class Session extends NativeObject {
     /**
      * Loads a module by the name an {@code import} would use (e.g. {@code "lighting"}, or
      * {@code "materials.pbr"} for {@code materials/pbr.slang}), finding its source through the
-     * session's {@link SessionBuilder#searchPath search paths} and
-     * {@link SessionBuilder#fileSystem file system}. A module already loaded under that name is
+     * session's {@link SessionBuilder#searchPath(java.nio.file.Path...) search paths} and
+     * {@link SessionBuilder#fileSystem(SlangFileSystem) file system}. A module already loaded under that name is
      * returned again rather than recompiled.
      *
      * @throws SlangCompileException with the compiler's diagnostics when the module cannot be found
