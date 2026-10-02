@@ -30,6 +30,11 @@ generated against, and any newer Slang works, because Slang's public ABI is appe
 value is available at runtime as `SlangLibrary.PINNED_SLANG_VERSION`, alongside
 `GlobalSession.buildTagString()` for the library actually loaded.
 
+Serialized modules (`Module.serialize()`) are versioned separately and more narrowly: each Slang
+release reads only a small range of module versions, so treat them as a cache tied to the release
+that wrote them. `Session.loadModuleFromIr` throws a `SlangCompileException` for anything the
+loaded Slang cannot read, and `Session.moduleInfo` tells you up front which version a blob is.
+
 ## Getting started
 
 Add the library and the natives classifier for your machine — compute it from the host so you
