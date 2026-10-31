@@ -821,9 +821,21 @@
      "value": 160
     },
     {
+     "name": "DisableNotes",
+     "value": 161
+    },
+    {
+     "name": "DiagnosticFormat",
+     "value": 162
+    },
+    {
+     "name": "EnableExtendedHLSLBackwardsCompatibility",
+     "value": 163
+    },
+    {
      "derived": true,
      "name": "CountOf",
-     "value": 161
+     "value": 164
     }
    ]
   },
@@ -1723,6 +1735,22 @@
     {
      "name": "SLANG_DIAGNOSTIC_COLOR_NEVER",
      "value": 2
+    }
+   ]
+  },
+  {
+   "name": "SlangDiagnosticFormat",
+   "repr": {
+    "k": "u32"
+   },
+   "values": [
+    {
+     "name": "SLANG_DIAGNOSTIC_FORMAT_DEFAULT",
+     "value": 0
+    },
+    {
+     "name": "SLANG_DIAGNOSTIC_FORMAT_VISUAL_STUDIO",
+     "value": 1
     }
    ]
   },
@@ -11776,7 +11804,7 @@
    "method": "hasDefaultValue"
   }
  ],
- "slangVersion": "2026.19",
+ "slangVersion": "2026.20",
  "structs": [
   {
    "align": 4,
