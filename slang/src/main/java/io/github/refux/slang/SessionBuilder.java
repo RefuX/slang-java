@@ -124,6 +124,30 @@ public final class SessionBuilder {
         return option(CompilerOptionName.DisableWarnings, String.join(",", warnings));
     }
 
+    /** Silences notes (the follow-on lines attached to diagnostics), by code or name. */
+    public SessionBuilder disableNotes(String... notes) {
+        if (notes.length == 0) {
+            throw new IllegalArgumentException("name at least one note to disable");
+        }
+        return option(CompilerOptionName.DisableNotes, String.join(",", notes));
+    }
+
+    /**
+     * How human-readable diagnostics are presented; Slang's default is
+     * {@link DiagnosticFormat#DEFAULT}. Machine-readable diagnostics take precedence.
+     */
+    public SessionBuilder diagnosticFormat(DiagnosticFormat format) {
+        return option(CompilerOptionName.DiagnosticFormat, Enums.raw(format, format.value()));
+    }
+
+    /**
+     * Enables extra backwards-compatibility for legacy HLSL input, such as using uniform parameters
+     * as mutable temporaries. Has no effect on other dialects.
+     */
+    public SessionBuilder extendedHlslCompatibility(boolean enable) {
+        return option(CompilerOptionName.EnableExtendedHLSLBackwardsCompatibility, enable);
+    }
+
     /**
      * The Slang language version to compile as, e.g. {@code 2026} — a {@code SlangLanguageVersion}
      * value. The global session's default is 2025.

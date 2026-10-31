@@ -32,6 +32,10 @@ class CompilerOptionsTest {
             void main(uint3 tid : SV_DispatchThreadID) { int truncated = 1.5; }
             """;
 
+    /** {@code options_probe.slang(3)} or {@code (3,9)}: the Visual Studio location syntax. */
+    private static final java.util.regex.Pattern VS_LOCATION =
+            java.util.regex.Pattern.compile("options_probe\\.slang\\(\\d+(,\\d+)?\\)");
+
     private static byte[] compile(
             GlobalSession global, CompileTarget target, String source, UnaryOperator<SessionBuilder> configure) {
         try (Session session =
@@ -41,6 +45,14 @@ class CompilerOptionsTest {
                     session.composite(module, module.entryPoint("main")).link()) {
                 return linked.entryPointCode(0, 0);
             }
+        }
+    }
+
+    private static String failureOf(GlobalSession global, String source, UnaryOperator<SessionBuilder> configure) {
+        try (Session session =
+                configure.apply(global.newSession().target(CompileTarget.SPIRV)).create()) {
+            return assertThrows(SlangCompileException.class, () -> session.loadModuleFromSource("notes_probe", source))
+                    .getMessage();
         }
     }
 
@@ -95,6 +107,44 @@ class CompilerOptionsTest {
                     WARNS,
                     s -> s.onDiagnostics(warnings::add).disableWarnings("30081"));
             assertTrue(warnings.isEmpty(), "disabled warning still reported: " + warnings);
+        }
+    }
+
+    @Test
+    void visualStudioDiagnosticFormatChangesTheLocationSyntax() {
+        try (GlobalSession global = Slang.createGlobalSession()) {
+            List<String> plain = new ArrayList<>();
+            List<String> vs = new ArrayList<>();
+            compile(global, CompileTarget.SPIRV, WARNS, s -> s.onDiagnostics(plain::add));
+            compile(
+                    global,
+                    CompileTarget.SPIRV,
+                    WARNS,
+                    s -> s.onDiagnostics(vs::add).diagnosticFormat(DiagnosticFormat.VISUAL_STUDIO));
+            assertFalse(vs.isEmpty(), "the probe source warns");
+            assertTrue(VS_LOCATION.matcher(String.join("", vs)).find(), "not Visual Studio style: " + vs);
+            assertFalse(VS_LOCATION.matcher(String.join("", plain)).find());
+        }
+    }
+
+    @Test
+    void extendedHlslCompatibilityIsAccepted() {
+        try (GlobalSession global = Slang.createGlobalSession()) {
+            assertTrue(
+                    compile(global, CompileTarget.SPIRV, COMPUTE, s -> s.extendedHlslCompatibility(true)).length > 0);
+        }
+    }
+
+    @Test
+    void disableNotesDropsTheFollowOnLines() {
+        String ambiguous = "void f(int a, float b) {} void f(float a, int b) {}\nvoid g() { f(1, 1); }";
+        try (GlobalSession global = Slang.createGlobalSession()) {
+            assertTrue(failureOf(global, ambiguous, s -> s).contains("note["), "the probe source has a note");
+            String quiet = failureOf(global, ambiguous, s -> s.disableNotes("40011"));
+            assertTrue(quiet.contains("ambiguous call"), "the error itself remains: " + quiet);
+            assertFalse(quiet.contains("note["), "disabled note still reported: " + quiet);
+            assertThrows(
+                    IllegalArgumentException.class, () -> global.newSession().disableNotes());
         }
     }
 
@@ -172,6 +222,7 @@ class CompilerOptionsTest {
             assertThrows(IllegalArgumentException.class, () -> builder.optimization(OptimizationLevel.UNKNOWN));
             assertThrows(IllegalArgumentException.class, () -> builder.debugInfo(DebugInfoLevel.UNKNOWN));
             assertThrows(IllegalArgumentException.class, () -> builder.bitfieldPacking(BitfieldPacking.UNKNOWN));
+            assertThrows(IllegalArgumentException.class, () -> builder.diagnosticFormat(DiagnosticFormat.UNKNOWN));
         }
     }
 }
